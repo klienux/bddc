@@ -1,5 +1,5 @@
 #!/bin/bash
-# version 0.0.3
+# version 0.0.4
 #####################################################################################
 # licensed under the                                                                #
 # The MIT License                                                                   #
@@ -97,18 +97,39 @@ check_url=http://whatismyip.com
 #################################
 # ad 3: router model
 # 1 -> DLink DI-624
+# 2 -> Netgear-TA612V
+# 3 -> WGT-624
 ROUTER=1
+router_tmp_file=/tmp/router_tmp_file
 
 #-------DLink-DI-624---------
 # ad 1: DLink DI-624 conf
 dlink_user=ADMIN
 dlink_passwd=PASSWD
 dlink_ip=192.168.0.1
-dlink_tmp_file=/tmp/dlink_tmp_file
 # this helps parsing (do not change)
+dlink_url=st_devic.html
 dlink_mode=WAN
 dlink_wan_mode=PPTP
 #------/Dlink-DI-624---------
+
+#-------Netgear-TA612V--------
+# ad 2: Netgear-TA612V conf
+netgear1_user=ADMIN
+netgear1_passwd=PASSWD
+netgear1_ip=192.168.0.1
+# this helps parsing (do not change)
+netgear1_url=s_status.htm
+#------/Netgear-TA612V--------
+
+#-------WGT-624--------
+# ad 1: WGT 624 conf
+wgt624_user=ADMIN
+wgt624_passwd=PASSWD
+wgt624_ip=192.168.0.1
+# this helps parsing (do not change)
+wgt624_url=RST_status.htm
+#-------/WGT-624-------
 
 #####################
 # mode of syndication
@@ -128,9 +149,10 @@ afraid_url=http://freedns.afraid.org/dynamic/update.php.........................
 #------------dyndns.org----------------
 # ad 2: your data you got at dyndns.org
    # enter username, password, hostnames (devided by ',')
-dyndnsorg_username=klien
-dyndnsorg_passwd=test12
-dyndnsorg_hostnameS=klien.homelinux.org
+dyndnsorg_username=USER
+dyndnsorg_passwd=PASSWD
+dyndnsorg_hostnameS=YOURDOMAIN.homelinux.org
+#- do not edit-----
 dyndnsorg_wildcard=NOCHG
 dyndnsorg_mail=NOCHG
 dyndnsorg_backmx=NOCHG
@@ -150,6 +172,20 @@ my_url=your.domain.com
 ###################################################################################
 # End of editspace, just go further if you know what you are doing                #
 ###################################################################################
+
+login_data_valid () {
+  	if [ "$1" == "ADMIN" -o "$2" == "PASSWD" ]; then
+  	           if [ $SILENT -eq 0 ]; then
+                $echo "ERROR: check the login settings for your router"
+            fi
+            if [ $LOGGING -ge 1 ]; then
+                $echo "[`$date +%d/%b/%Y:%T`] | ERROR: check the login settings for your router" >> $LOGFILE 
+            fi
+            return 0;
+        fi
+  return 1;
+}
+
 
 case "$CHECKMODE" in
 	# ifconfig mode
@@ -174,33 +210,71 @@ case "$CHECKMODE" in
         ;;
     
 	# router per http mode
-    3)
-        if [ "$dlink_user" == "ADMIN" -o "$dlink_passwd" == "PASSWD" ]; then
-            if [ $SILENT -eq 0 ]; then
-                $echo "ERROR: check the login settings for your router"
-            fi
-            if [ $LOGGING -ge 1 ]; then
-                $echo "[`$date +%d/%b/%Y:%T`] | ERROR: check the login settings for your router" >> $LOGFILE && exit 2;
-            fi
-        fi
-        # DLink DI-624
+    3)   
         case $ROUTER in
+        # DLink DI-624
             1)
-                string=`$curl -s --anyauth -u ${dlink_user}:${dlink_passwd} -o "${dlink_tmp_file}" http://${dlink_ip}/st_devic.html`
-                line=`$grep -A 20 ${dlink_mode} ${dlink_tmp_file} | $grep onnected`
+             	login_data_valid ${dlink_user} ${dlink_passwd}
+             	loginIsValid=$?
+	          	if [ $loginIsValid ]; then
+                	exit 2
+               	fi
+                string=`$curl -s --anyauth -u ${dlink_user}:${dlink_passwd} -o "${router_tmp_file}" http://${dlink_ip}/${dlink_url}`
+                line=`$grep -A 20 ${netgear1_mode} ${router_tmp_file} | $grep onnected`
                 line2=${line#"                    PPTP "}
                 disconnected=${line2:0:9} # cutting Connected out of file
                 if [ "$disconnected" != "Connected" ]; then
-                    if [ $LOGGING -ge 1 ]; then
-                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: DLink DI-624 Internet interface is down!" >> $LOGFILE && exit 1
-                    fi 
                     if [ $SILENT -eq 0 ]; then
                         $echo "ERROR: DLink DI-624 internet interface is down!"
                     fi
+                    if [ $LOGGING -ge 1 ]; then
+                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: DLink DI-624 Internet interface is down!" >> $LOGFILE && exit 1
+                    fi 
                 fi
-                current_ip=`$grep -A 30 ${dlink_mode} ${dlink_tmp_file} | $grep -A 9 ${dlink_wan_mode} | $tail -n 1 | $cut -d " " -f 21`
-                rm ${dlink_tmp_file}
-                ;;
+                current_ip=`$grep -A 30 ${dlink_mode} ${router_tmp_file} | $grep -A 9 ${dlink_wan_mode} | $tail -n 1 | $cut -d " " -f 21`
+                rm ${router_tmp_file}
+             ;;
+             
+             # Netgear-TA612V
+             2)
+             	login_data_valid ${netgear1_user} ${netgear1_passwd}
+             	loginIsValid=$?
+	          	if [ $loginIsValid ]; then
+                	exit 2
+               	fi
+               	string=`$curl -s --anyauth -u ${netgear1_user}:${netgear1_passwd} -o "${router_tmp_file}" http://${netgear1_ip}/${netgear1_url}`
+               	current_ip=`grep -A 20 'Internet Port' ${router_tmp_file} | grep -A 1 'IP Address'|egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | sed 's/<[^>]*>//g;/</N;'|sed 's/^[^0-9]*//;s/[^0-9]*$//'`
+               if [ -z "$current_ip" ]; then
+                    if [ $SILENT -eq 0 ]; then
+                        $echo "ERROR: Netgear-TA612V internet interface is down!"
+                    fi
+                    if [ $LOGGING -ge 1 ]; then
+                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Netgear-TA612V Internet interface is down!" >> $LOGFILE && exit 1
+                    fi 
+                fi
+                rm ${router_tmp_file}
+             ;;
+             
+             # WGT 624
+             3)
+             	login_data_valid ${wgt624_user} ${wgt624_passwd}
+             	loginIsValid=$?
+	          	if [ $loginIsValid ]; then
+                	exit 2
+               	fi
+              string=`$curl -s --anyauth -u ${wgt624_user}:${wgt624_passwd} -o "${router_tmp_file}" file:///Volumes/home/flo/Documents/projects/bddc/svn/${wgt624_url}`
+#             string=`$curl -s --anyauth -u ${wgt624_user}:${wgt624_passwd} -o "${router_tmp_file}" http://${wgt624_ip}/${wgt624_url}`
+             current_ip=`$grep -A 20 'Internet Port' ${router_tmp_file}| $grep -A 1 'IP Address' | $egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $sed 's/<[^>]*>//g;/</N;'| $sed 's/^[^0-9]*//;s/[^0-9]*$//'`
+               if [ "$current_ip" == "0.0.0.0" ]; then
+                    if [ $SILENT -eq 0 ]; then
+                        $echo "ERROR: WGT 624 internet interface is down!"
+                    fi
+                    if [ $LOGGING -ge 1 ]; then
+                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: WGT 624 Internet interface is down!" >> $LOGFILE && exit 1
+                    fi 
+                fi
+          	 rm ${router_tmp_file}
+             ;;
         esac
         
         ;;
