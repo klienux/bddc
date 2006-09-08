@@ -262,9 +262,8 @@ case "$CHECKMODE" in
 	          	if [ $loginIsValid ]; then
                 	exit 2
                	fi
-              string=`$curl -s --anyauth -u ${wgt624_user}:${wgt624_passwd} -o "${router_tmp_file}" file:///Volumes/home/flo/Documents/projects/bddc/svn/${wgt624_url}`
-#             string=`$curl -s --anyauth -u ${wgt624_user}:${wgt624_passwd} -o "${router_tmp_file}" http://${wgt624_ip}/${wgt624_url}`
-             current_ip=`$grep -A 20 'Internet Port' ${router_tmp_file}| $grep -A 1 'IP Address' | $egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $sed 's/<[^>]*>//g;/</N;'| $sed 's/^[^0-9]*//;s/[^0-9]*$//'`
+                string=`$curl -s --anyauth -u ${wgt624_user}:${wgt624_passwd} -o "${router_tmp_file}" http://${wgt624_ip}/${wgt624_url}`
+                current_ip=`$grep -A 20 'Internet Port' ${router_tmp_file}| $grep -A 1 'IP Address' | $egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $sed 's/<[^>]*>//g;/</N;'| $sed 's/^[^0-9]*//;s/[^0-9]*$//'`
                if [ "$current_ip" == "0.0.0.0" ]; then
                     if [ $SILENT -eq 0 ]; then
                         $echo "ERROR: WGT 624 internet interface is down!"
