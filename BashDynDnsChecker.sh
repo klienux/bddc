@@ -77,7 +77,7 @@ LOGGING=3
 LOGFILE=/var/log/ddchecker.log
 
 # turn silent mode on (no echo while running, mostly used for debugging [1 is silent])
-SILENT=1
+SILENT=0
 
 #################################
 # mode of ip checking
@@ -138,7 +138,7 @@ wgt624_url=RST_status.htm
 # 1 -> use afraid.org url
 # 2 -> use dyndns.org
 # T -> testing option (doing nothing)
-IPSYNMODE=T
+IPSYNMODE=2
 
 
 #------------afraid.org-----------------
@@ -150,9 +150,9 @@ afraid_url=http://freedns.afraid.org/dynamic/update.php.........................
 
 #------------dyndns.org----------------
 # ad 2: your data you got at dyndns.org
-dyndnsorg_username=USER
-dyndnsorg_passwd=PASSWD
-dyndnsorg_hostnameS=YOURDOMAIN.homelinux.org
+dyndnsorg_username=bddc
+dyndnsorg_passwd=test12
+dyndnsorg_hostnameS=bddctest.dyndns.org
 #--do not edit-----
 dyndnsorg_wildcard=NOCHG
 dyndnsorg_mail=NOCHG
@@ -305,38 +305,46 @@ if [ "$current_ip" != "$old_ip" ]
                 fi
             fi
             ;;
-	    # dyndns.org
+    
+    # dyndns.org
         2)
 	    dyndnsorg_ip=$current_ip;
-	    dyndnsorg_feedback=`$curl http://${dyndynorg_username}:${dyndnsorg_passwd}@members.dyndns.org/nic/update?system=dyndns&hostname=${dyndnsorg_hostnameS}&myip=${dyndnsorg_ip}&wildcard=${dyndnsorg_wildcard}&mx=${dyndnsorg_mail}&backmx=${dyndnsorg_backmx}&offline=${dyndnsorg_offline}`
-            
-            if [ -n `grep badagent $dyndnsorg_feedback` ]; then
+	    dyndnsorg_feedback=`$curl -s http://${dyndynorg_username}:${dyndnsorg_passwd}@members.dyndns.org/nic/update?system=dyndns&hostname=${dyndnsorg_hostnameS}&myip=${dyndnsorg_ip}&wildcard=${dyndnsorg_wildcard}&mx=${dyndnsorg_mail}&backmx=${dyndnsorg_backmx}&offline=${dyndnsorg_offline}`
+#            echo $dyndnsorg_feedback
+            if [ -n `echo $dyndnsorg_feedback|grep badagent` ]; then
+                if [ $SILENT -eq "0" ]; then
+                    $echo "dyndns.org: ${dyndnsorg_feedback}"
+                fi
                 if [ $LOGGING -ge "1" ]; then
                     $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: ${dyndnsorg_feedback}" >> $LOGFILE && exit 1
                 fi 
-                if [ $SILENT -eq "0" ]; then
-                    $echo "dyndns.org: ${afraid_feedback}"
-                fi
             fi
-	    if [ -n `grep abuse $dyndnsorg_feedback` ]; then
+	    if [ -n `echo $dyndnsorg_feedback|grep abuse` ]; then
+                if [ $SILENT -eq "0" ]; then
+                    $echo "dyndns.org: ${dyndnsorg_feedback}"
+                fi
                 if [ $LOGGING -ge "1" ]; then
                     $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: ${dyndnsorg_feedback}" >> $LOGFILE && exit 1
                 fi 
-                if [ $SILENT -eq "0" ]; then
-                    $echo "dyndns.org: ${afraid_feedback}"
-                fi
             fi
-	    if [ -n `grep notfqdn $dyndnsorg_feedback` ]; then
+	    if [ -n `echo $dyndnsorg_feedback|grep notfqdn` ]; then
+                if [ $SILENT -eq "0" ]; then
+                    $echo "dyndns.org: ${dyndnsorg_feedback}"
+                fi
                 if [ $LOGGING -ge "1" ]; then
                     $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: ${dyndnsorg_feedback}" >> $LOGFILE && exit 1
                 fi 
+            fi
+	    if [ -n `echo $dyndnsorg_feedback|grep badauth` ]; then
                 if [ $SILENT -eq "0" ]; then
-                    $echo "dyndns.org: ${afraid_feedback}"
+                    $echo "dyndns.org: ${dyndnsorg_feedback}"
                 fi
+                if [ $LOGGING -ge "1" ]; then
+                    $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: ${dyndnsorg_feedback}" >> $LOGFILE && exit 1
+                fi 
             fi
 	    if [ $SILENT -eq "0" ]; then
-                $echo $dyndnsorg_feedback;
-                $echo "dyndnsorg check end"
+                $echo $dyndnsorg_feedback "dyndnsorg update end"
             fi
    	    ;;
         T)
