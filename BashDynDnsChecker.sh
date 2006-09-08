@@ -123,13 +123,15 @@ netgear1_url=s_status.htm
 #------/Netgear-TA612V--------
 
 #-------WGT-624--------
-# ad 1: WGT 624 conf
+# ad 3: WGT 624 conf
 wgt624_user=ADMIN
 wgt624_passwd=PASSWD
 wgt624_ip=192.168.0.1
 # this helps parsing (do not change)
 wgt624_url=RST_status.htm
 #-------/WGT-624-------
+#################################
+
 
 #####################
 # mode of syndication
@@ -141,18 +143,17 @@ IPSYNMODE=T
 
 #------------afraid.org-----------------
 # ad 1: your update url using afraid.org
-   # enter your syndication url from afraid.org
+# enter your syndication url from afraid.org
 afraid_url=http://freedns.afraid.org/dynamic/update.php...........................
 #-----------/afraid.org-----------------
 
 
 #------------dyndns.org----------------
 # ad 2: your data you got at dyndns.org
-   # enter username, password, hostnames (devided by ',')
 dyndnsorg_username=USER
 dyndnsorg_passwd=PASSWD
 dyndnsorg_hostnameS=YOURDOMAIN.homelinux.org
-#- do not edit-----
+#--do not edit-----
 dyndnsorg_wildcard=NOCHG
 dyndnsorg_mail=NOCHG
 dyndnsorg_backmx=NOCHG
