@@ -73,10 +73,10 @@ curl=/usr/bin/curl
 # 2 -> log when ip changes
 # 1 -> log errors
 # 0 -> log nothing
-LOGGING=3
+LOGGING=0
 LOGFILE=/var/log/bddc.log
 
-# turn silent mode on (no echo while running, mostly used for debugging [1 is silent])
+# turn silent mode on (no echo while running, [1 is silent])
 SILENT=1
 
 #################################
@@ -190,6 +190,22 @@ login_data_valid () {
     return 1;
 }
 
+if [ ! -e ${ip_cache} ] || [ ! -s ${ip_cache} ]; then
+    $echo '0.0.0.0' > ${ip_cache}
+fi
+if [ $LOGGING -ge 1 ]; then
+    if [ ! -r ${LOGFILE} ] || [ ! -w ${LOGFILE} ]; then
+        $echo "ERROR: Script has no write and/or no read permission for logfile ${LOGFILE}!"
+        exit 2
+    fi
+fi
+if [ ! -r ${ip_cache} ] || [ ! -w ${ip_cache} ]; then
+    $echo "ERROR: Script has no write and/or no read permission for ${ip_cache}!"
+    if [ $LOGGING -ge 1 ]; then
+        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Script has no write and/or no read permission for ${ip_cache}!" >> $LOGFILE 
+    fi
+    exit 2
+fi
 
 case "$CHECKMODE" in
 	# ifconfig mode
