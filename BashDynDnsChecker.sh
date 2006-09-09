@@ -192,7 +192,7 @@ my_url=your.domain.com
 ################################################################################
 
 login_data_valid () {
-    if [ "$1" == "ADMIN" -o "$2" == "PASSWD" ]; then
+    if [ "$1" == "ADMIN" ] || [ "$2" == "PASSWD" ]; then
         if [ $SILENT -eq 0 ]; then
             $echo "ERROR: check the login settings for your router"
         fi
@@ -205,9 +205,12 @@ login_data_valid () {
 }
 
 if [ ! -e ${ip_cache} ] || [ ! -s ${ip_cache} ]; then
-    $echo '0.0.0.0' > ${ip_cache}
+    $echo '0.0.0.0' >> ${ip_cache}
 fi
 if [ $LOGGING -ge 1 ]; then
+    if [ ! -e ${LOGFILE} ] || [ ! -s ${LOGFILE} ]; then
+        $echo 'BashDynDnsChecker Logfile:' >> ${LOGFILE}
+    fi
     if [ ! -r ${LOGFILE} ] || [ ! -w ${LOGFILE} ]; then
         $echo "ERROR: Script has no write and/or no read permission for logfile ${LOGFILE}!"
         exit 2
@@ -251,11 +254,11 @@ case "$CHECKMODE" in
             1)
              	login_data_valid ${dlink_user} ${dlink_passwd}
              	loginIsValid=$?
-                if [ $loginIsValid ]; then
+                if [ $loginIsValid == 0 ]; then
                     exit 2
                	fi
                 string=`$curl -s --anyauth -u ${dlink_user}:${dlink_passwd} -o "${router_tmp_file}" http://${dlink_ip}/${dlink_url}`
-                line=`$grep -A 20 ${netgear1_mode} ${router_tmp_file} | $grep onnected`
+                line=`$grep -A 20 ${dlink_mode} ${router_tmp_file} | $grep onnected`
                 line2=${line#"                    PPTP "}
                 disconnected=${line2:0:9} # cutting Connected out of file
                 if [ "$disconnected" != "Connected" ]; then
@@ -274,7 +277,7 @@ case "$CHECKMODE" in
             2)
              	login_data_valid ${netgear1_user} ${netgear1_passwd}
              	loginIsValid=$?
-                if [ $loginIsValid ]; then
+                if [ $loginIsValid == 0 ]; then
                     exit 2
                	fi
                	string=`$curl -s --anyauth -u ${netgear1_user}:${netgear1_passwd} -o "${router_tmp_file}" http://${netgear1_ip}/${netgear1_url}`
@@ -294,7 +297,7 @@ case "$CHECKMODE" in
             3)
              	login_data_valid ${wgt624_user} ${wgt624_passwd}
              	loginIsValid=$?
-                if [ $loginIsValid ]; then
+                if [ $loginIsValid == 0 ]; then
                     exit 2
                 fi
                 string=`$curl -s --anyauth -u ${wgt624_user}:${wgt624_passwd} -o "${router_tmp_file}" http://${wgt624_ip}/${wgt624_url}`
@@ -328,8 +331,7 @@ if [ "$current_ip" != "$old_ip" ]
         	# afraid.org gets IP over the http request of your url
             afraid_feedback=`$curl -A '${bddc_name}' -s $afraid_url`
             checker=$afraid_feedback
-            checker=${checker:0:5}
-            if [ "ERROR" = $checker ]; then
+            if [ "ERROR" = ${checker:0:5} ]; then
                 if [ $LOGGING -ge "1" ]; then
                     $echo "[`$date +%d/%b/%Y:%T`] | afraid.org: ${afraid_feedback}" >> $LOGFILE && exit 1
                 fi 
