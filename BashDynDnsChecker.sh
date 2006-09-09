@@ -74,10 +74,10 @@ curl=/usr/bin/curl
 # 1 -> log errors
 # 0 -> log nothing
 LOGGING=3
-LOGFILE=/var/log/ddchecker.log
+LOGFILE=/var/log/bddc.log
 
 # turn silent mode on (no echo while running, mostly used for debugging [1 is silent])
-SILENT=0
+SILENT=1
 
 #################################
 # mode of ip checking
@@ -138,7 +138,7 @@ wgt624_url=RST_status.htm
 # 1 -> use afraid.org url
 # 2 -> use dyndns.org
 # T -> testing option (doing nothing)
-IPSYNMODE=2
+IPSYNMODE=T
 
 
 #------------afraid.org-----------------
@@ -150,9 +150,9 @@ afraid_url=http://freedns.afraid.org/dynamic/update.php.........................
 
 #------------dyndns.org----------------
 # ad 2: your data you got at dyndns.org
-dyndnsorg_username=bddc
-dyndnsorg_passwd=test12
-dyndnsorg_hostnameS=bddctest.dyndns.org
+dyndnsorg_username=USER
+dyndnsorg_passwd=PASSWD
+dyndnsorg_hostnameS=URL.dyndns.org
 #--do not edit-----
 dyndnsorg_wildcard=NOCHG
 dyndnsorg_mail=NOCHG
@@ -165,7 +165,10 @@ dyndnsorg_ip=
 
 
 # cache file for ip address
-ip_cache=/tmp/ipaddr.cache
+ip_cache=/tmp/bddc-ip-add.cache
+
+# the name of the client that is sent with updates and requests
+bddc_name="bashdyndnschecker (bddc)"
 
 # the url that needs the dyndns (has no sense in this release)
 my_url=your.domain.com
@@ -207,7 +210,7 @@ case "$CHECKMODE" in
     	# only edit if you know what you do!
     	# edit to a form that only the ip remains when you get the html file
 		# in this format: '123.123.132.132'
-        current_ip=`$curl -s -A 'bashdyndnschecker (bddc)' $check_url | $egrep -e ^[\ \t]*\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}| $sed 's/ //g'`
+        current_ip=`$curl -s -A '${bddc_name}' $check_url | $egrep -e ^[\ \t]*\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}| $sed 's/ //g'`
         ;;
     
 	# router per http mode
@@ -293,7 +296,7 @@ if [ "$current_ip" != "$old_ip" ]
         # afraid.org
         1)
         	# afraid.org gets IP over the http request of your url
-            afraid_feedback=`$curl -s $afraid_url`
+            afraid_feedback=`$curl -A '${bddc_name}' -s $afraid_url`
             checker=$afraid_feedback
             checker=${checker:0:5}
             if [ "ERROR" = $checker ]; then
@@ -309,42 +312,58 @@ if [ "$current_ip" != "$old_ip" ]
     # dyndns.org
         2)
 	    dyndnsorg_ip=$current_ip;
-	    dyndnsorg_feedback=`$curl -s http://${dyndynorg_username}:${dyndnsorg_passwd}@members.dyndns.org/nic/update?system=dyndns&hostname=${dyndnsorg_hostnameS}&myip=${dyndnsorg_ip}&wildcard=${dyndnsorg_wildcard}&mx=${dyndnsorg_mail}&backmx=${dyndnsorg_backmx}&offline=${dyndnsorg_offline}`
-#            echo $dyndnsorg_feedback
-            if [ -n `echo $dyndnsorg_feedback|grep badagent` ]; then
+            myurl=`$echo "http://${dyndnsorg_username}:${dyndnsorg_passwd}@members.dyndns.org/nic/update?system=dyndns&hostname=${dyndnsorg_hostnameS}&myip=${dyndnsorg_ip}&wildcard=${dyndnsorg_wildcard}&mx=${dyndnsorg_mail}&backmx=${dyndnsorg_backmx}&offline=${dyndnsorg_offline}"`
+            dyndnsorg_feedback=`$curl -s -A '${bddc_name}' ${myurl}`
+            if [ "${dyndnsorg_feedback:0:8}" == "badagent" ]; then
                 if [ $SILENT -eq "0" ]; then
-                    $echo "dyndns.org: ${dyndnsorg_feedback}"
+                    $echo "dyndns.org: ERROR The user agent that was sent has been blocked for not following the specifications (${dyndnsorg_feedback})"
                 fi
                 if [ $LOGGING -ge "1" ]; then
-                    $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: ${dyndnsorg_feedback}" >> $LOGFILE && exit 1
+                    $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: ERROR The user agent that was sent has been blocked for not following the specifications (${dyndnsorg_feedback})" >> $LOGFILE && exit 1
                 fi 
             fi
-	    if [ -n `echo $dyndnsorg_feedback|grep abuse` ]; then
+	    if [  "${dyndnsorg_feedback:0:5}" == "abuse" ]; then
                 if [ $SILENT -eq "0" ]; then
-                    $echo "dyndns.org: ${dyndnsorg_feedback}"
+                    $echo "dyndns.org: ERROR account blocked because of abuse (${dyndnsorg_feedback})"
                 fi
                 if [ $LOGGING -ge "1" ]; then
-                    $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: ${dyndnsorg_feedback}" >> $LOGFILE && exit 1
+                    $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: ERROR account blocked because of abuse (${dyndnsorg_feedback})" >> $LOGFILE && exit 1
                 fi 
             fi
-	    if [ -n `echo $dyndnsorg_feedback|grep notfqdn` ]; then
+	    if [ "${dyndnsorg_feedback:0:7}" == "notfqdn" ]; then
                 if [ $SILENT -eq "0" ]; then
-                    $echo "dyndns.org: ${dyndnsorg_feedback}"
+                    $echo "dyndns.org: ERROR domain name is not fully qualified (${dyndnsorg_feedback})"
                 fi
                 if [ $LOGGING -ge "1" ]; then
-                    $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: ${dyndnsorg_feedback}" >> $LOGFILE && exit 1
+                    $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: ERROR domain name is not fully qualified (${dyndnsorg_feedback})" >> $LOGFILE && exit 1
                 fi 
             fi
-	    if [ -n `echo $dyndnsorg_feedback|grep badauth` ]; then
+	    if [ "${dyndnsorg_feedback:0:7}" == "badauth" ]; then
                 if [ $SILENT -eq "0" ]; then
-                    $echo "dyndns.org: ${dyndnsorg_feedback}"
+                    $echo "dyndns.org: ERROR bad authentication (${dyndnsorg_feedback})"
                 fi
                 if [ $LOGGING -ge "1" ]; then
-                    $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: ${dyndnsorg_feedback}" >> $LOGFILE && exit 1
+                    $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: ERROR bad authentication (${dyndnsorg_feedback})" >> $LOGFILE && exit 1
                 fi 
+            fi
+	    if [ "${dyndnsorg_feedback:0:4}" == "good" ]; then
+                if [ $SILENT -eq "0" ]; then
+                    $echo "dyndns.org: update successful (${dyndnsorg_feedback})"
+                fi
+                if [ $LOGGING -ge "2" ]; then
+                    $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: update successful (${dyndnsorg_feedback})" >> $LOGFILE
+                fi
+            fi
+	    if [ "${dyndnsorg_feedback:0:5}" == "nochg" ]; then
+                if [ $SILENT -eq "0" ]; then
+                    $echo "dyndns.org: still the same ip (${dyndnsorg_feedback})"
+                fi
+                if [ $LOGGING -ge "3" ]; then
+                    $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: still the same ip (${dyndnsorg_feedback})" >> $LOGFILE
+                fi
             fi
 	    if [ $SILENT -eq "0" ]; then
-                $echo $dyndnsorg_feedback "dyndnsorg update end"
+                $echo "dyndns.org: $dyndnsorg_feedback"
             fi
    	    ;;
         T)
