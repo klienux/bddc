@@ -89,6 +89,9 @@ curl=curl
 LOGGING=0
 LOGFILE=/var/log/bddc.log
 
+# cache file for ip address
+ip_cache=/tmp/bddc-ip-add.cache
+
 # turn silent mode on (no echo while running, [1 is silent])
 SILENT=1
 
@@ -176,10 +179,6 @@ dyndnsorg_offline=NO
 dyndnsorg_ip=
 #-----------/dyndns.org----------------
 
-
-
-# cache file for ip address
-ip_cache=/tmp/bddc-ip-add.cache
 
 # the name of the client that is sent with updates and requests
 bddc_name="bashdyndnschecker (bddc)"
@@ -325,6 +324,8 @@ old_ip=`$cat $ip_cache`
 if [ "$current_ip" != "$old_ip" ]
     then
     
+    $echo $current_ip > $ip_cache
+    
     case $IPSYNMODE in
         # afraid.org
         1)
@@ -332,12 +333,12 @@ if [ "$current_ip" != "$old_ip" ]
             afraid_feedback=`$curl -A '${bddc_name}' -s $afraid_url`
             checker=$afraid_feedback
             if [ "ERROR" = ${checker:0:5} ]; then
-                if [ $LOGGING -ge "1" ]; then
-                    $echo "[`$date +%d/%b/%Y:%T`] | afraid.org: ${afraid_feedback}" >> $LOGFILE && exit 1
-                fi 
                 if [ $SILENT -eq "0" ]; then
                     $echo "afraid.org: ${afraid_feedback}"
                 fi
+                if [ $LOGGING -ge "1" ]; then
+                    $echo "[`$date +%d/%b/%Y:%T`] | afraid.org: ${afraid_feedback}" >> $LOGFILE && $echo 0.0.0.0 > $ip_cache && exit 1
+                fi 
             fi
             ;;
         
@@ -405,8 +406,6 @@ if [ "$current_ip" != "$old_ip" ]
             fi
             ;;
     esac
-    
-    $echo $current_ip > $ip_cache
     
     #logging
     if [ $LOGGING -ge "2" ]
