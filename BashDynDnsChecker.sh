@@ -30,21 +30,34 @@
 #                                                                                   #
 # This is a dyndns check and synchronizing script                                   #
 # the executables it needs are:                                                     #
-# grep, curl, echo, sed, ifconfig, date, tail, cut, cat and rm                      #
+# grep, egrep, curl, echo, sed, ifconfig, date, tail, cut, cat and rm               #
 # which should be available in every linux system.                                  #
 #                                                                                   #
 # copyright 2006 by florian klien                                                   #
 # florian[at]klien[dot]cx                                                           #
 #                                                                                   #
-# actually supports ip reception from ifconfig, an external url (by http)           #
-# and parsing from a router (actually just DLink DI-624 because i don't             #
-# have access to other router to find out where/what to parse for the ip)           #
-# feel free to send me the matching parse string for any other router.              #
+# supports ip reception from ifconfig, an external url (by http)                    #
+# and parsing from a router.                                                        #
+#                                                                                   #
 #                                                                                   #
 # actually supports dyndns synchronization with afraid.org                          #
 #                                                                                   #
+#                                                                                   #
 # it needs to be called in crontab as a cronjob, or any other similar               #
 # perpetual program.                                                                #
+#                                                                                   #
+# if you want your router to be supported,                                          #
+# add the following information to the feature request site on sourceforge.net:     #
+#                                                                                   #
+# *) the url under which the external ip can be read from your router               #
+# *) a copy of the html source code from this site (each online and offline)        #
+# *) the complete name of your router                                               #
+# *) your name and email address for contact and testing purpose before             #
+#    a release is done.                                                             #
+# OR, what we prefer                                                                #
+# *) write your own parsing string, as we do in the script and put it on the        #
+#    feature request forum on sourceforge.net.                                      #
+# *) plus full name of the router                                                   #
 #                                                                                   #
 # exit codes:                                                                       #
 # 0 -> everything went fine                                                         #
@@ -65,7 +78,7 @@ ifconfig=ifconfig
 date=date
 tail=tail
 echo=echo
-curl=/usr/bin/curl
+curl=curl
 
 ######################
 # change logging level
@@ -94,7 +107,7 @@ inet_if=eth0
 # ad 2: remote url to get ip from over http
 check_url=http://whatismyip.com
 
-#################################
+########### R O U T E R #########
 # ad 3: router model
 # 1 -> DLink DI-624
 # 2 -> Netgear-TA612V
@@ -130,7 +143,8 @@ wgt624_ip=192.168.0.1
 # this helps parsing (do not change)
 wgt624_url=RST_status.htm
 #-------/WGT-624-------
-#################################
+######### / R O U T E R #########
+
 
 
 #####################
@@ -173,9 +187,9 @@ bddc_name="bashdyndnschecker (bddc)"
 # the url that needs the dyndns (has no sense in this release)
 my_url=your.domain.com
 
-###################################################################################
-# End of editspace, just go further if you know what you are doing                #
-###################################################################################
+################################################################################
+# End of editspace, just go further if you know what you are doing             #
+################################################################################
 
 login_data_valid () {
     if [ "$1" == "ADMIN" -o "$2" == "PASSWD" ]; then
@@ -201,6 +215,7 @@ if [ $LOGGING -ge 1 ]; then
 fi
 if [ ! -r ${ip_cache} ] || [ ! -w ${ip_cache} ]; then
     $echo "ERROR: Script has no write and/or no read permission for ${ip_cache}!"
+    $echo "NOTICE: the script needs permission to write to this file too: ${router_tmp_file}"
     if [ $LOGGING -ge 1 ]; then
         $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Script has no write and/or no read permission for ${ip_cache}!" >> $LOGFILE 
     fi
