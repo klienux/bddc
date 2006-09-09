@@ -39,12 +39,12 @@
 # supports ip reception from ifconfig, an external url (by http)                    #
 # and parsing from a router.                                                        #
 #                                                                                   #
-#                                                                                   #
-# actually supports dyndns synchronization with afraid.org                          #
-#                                                                                   #
+# supports dyndns synchronization with afraid.org and dyndns.org                    #
 #                                                                                   #
 # it needs to be called in crontab as a cronjob, or any other similar               #
 # perpetual program.                                                                #
+#                                                                                   #
+#                                                                                   #
 #                                                                                   #
 # if you want your router to be supported,                                          #
 # add the following information to the feature request site on sourceforge.net:     #
