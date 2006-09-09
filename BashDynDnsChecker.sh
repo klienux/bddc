@@ -290,7 +290,6 @@ esac
 old_ip=`$cat $ip_cache`
 if [ "$current_ip" != "$old_ip" ]
     then
-    $echo $current_ip > $ip_cache
     
     case $IPSYNMODE in
         # afraid.org
@@ -373,6 +372,8 @@ if [ "$current_ip" != "$old_ip" ]
             fi
             ;;
     esac
+
+    $echo $current_ip > $ip_cache
     
     #logging
     if [ $LOGGING -ge "2" ]
