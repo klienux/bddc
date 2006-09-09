@@ -100,7 +100,7 @@ check_url=http://whatismyip.com
 # 2 -> Netgear-TA612V
 # 3 -> WGT-624
 ROUTER=1
-router_tmp_file=/tmp/router_tmp_file
+router_tmp_file=/tmp/bddc_router_tmp_file
 
 #-------DLink-DI-624---------
 # ad 1: DLink DI-624 conf
@@ -178,16 +178,16 @@ my_url=your.domain.com
 ###################################################################################
 
 login_data_valid () {
-  	if [ "$1" == "ADMIN" -o "$2" == "PASSWD" ]; then
-  	           if [ $SILENT -eq 0 ]; then
-                $echo "ERROR: check the login settings for your router"
-            fi
-            if [ $LOGGING -ge 1 ]; then
-                $echo "[`$date +%d/%b/%Y:%T`] | ERROR: check the login settings for your router" >> $LOGFILE 
-            fi
-            return 0;
+    if [ "$1" == "ADMIN" -o "$2" == "PASSWD" ]; then
+        if [ $SILENT -eq 0 ]; then
+            $echo "ERROR: check the login settings for your router"
         fi
-  return 1;
+        if [ $LOGGING -ge 1 ]; then
+            $echo "[`$date +%d/%b/%Y:%T`] | ERROR: check the login settings for your router" >> $LOGFILE 
+        fi
+        return 0;
+        fi
+    return 1;
 }
 
 
@@ -220,8 +220,8 @@ case "$CHECKMODE" in
             1)
              	login_data_valid ${dlink_user} ${dlink_passwd}
              	loginIsValid=$?
-	          	if [ $loginIsValid ]; then
-                	exit 2
+                if [ $loginIsValid ]; then
+                    exit 2
                	fi
                 string=`$curl -s --anyauth -u ${dlink_user}:${dlink_passwd} -o "${router_tmp_file}" http://${dlink_ip}/${dlink_url}`
                 line=`$grep -A 20 ${netgear1_mode} ${router_tmp_file} | $grep onnected`
@@ -237,18 +237,18 @@ case "$CHECKMODE" in
                 fi
                 current_ip=`$grep -A 30 ${dlink_mode} ${router_tmp_file} | $grep -A 9 ${dlink_wan_mode} | $tail -n 1 | $cut -d " " -f 21`
                 rm ${router_tmp_file}
-             ;;
-             
+                ;;
+            
              # Netgear-TA612V
-             2)
+            2)
              	login_data_valid ${netgear1_user} ${netgear1_passwd}
              	loginIsValid=$?
-	          	if [ $loginIsValid ]; then
-                	exit 2
+                if [ $loginIsValid ]; then
+                    exit 2
                	fi
                	string=`$curl -s --anyauth -u ${netgear1_user}:${netgear1_passwd} -o "${router_tmp_file}" http://${netgear1_ip}/${netgear1_url}`
                	current_ip=`grep -A 20 'Internet Port' ${router_tmp_file} | grep -A 1 'IP Address'|egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | sed 's/<[^>]*>//g;/</N;'|sed 's/^[^0-9]*//;s/[^0-9]*$//'`
-               if [ -z "$current_ip" ]; then
+                if [ -z "$current_ip" ]; then
                     if [ $SILENT -eq 0 ]; then
                         $echo "ERROR: Netgear-TA612V internet interface is down!"
                     fi
@@ -257,18 +257,18 @@ case "$CHECKMODE" in
                     fi 
                 fi
                 rm ${router_tmp_file}
-             ;;
-             
+                ;;
+            
              # WGT 624
-             3)
+            3)
              	login_data_valid ${wgt624_user} ${wgt624_passwd}
              	loginIsValid=$?
-	          	if [ $loginIsValid ]; then
-                	exit 2
-               	fi
+                if [ $loginIsValid ]; then
+                    exit 2
+                fi
                 string=`$curl -s --anyauth -u ${wgt624_user}:${wgt624_passwd} -o "${router_tmp_file}" http://${wgt624_ip}/${wgt624_url}`
                 current_ip=`$grep -A 20 'Internet Port' ${router_tmp_file}| $grep -A 1 'IP Address' | $egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $sed 's/<[^>]*>//g;/</N;'| $sed 's/^[^0-9]*//;s/[^0-9]*$//'`
-               if [ "$current_ip" == "0.0.0.0" ]; then
+                if [ "$current_ip" == "0.0.0.0" ]; then
                     if [ $SILENT -eq 0 ]; then
                         $echo "ERROR: WGT 624 internet interface is down!"
                     fi
@@ -276,8 +276,8 @@ case "$CHECKMODE" in
                         $echo "[`$date +%d/%b/%Y:%T`] | ERROR: WGT 624 Internet interface is down!" >> $LOGFILE && exit 1
                     fi 
                 fi
-          	 rm ${router_tmp_file}
-             ;;
+                rm ${router_tmp_file}
+                ;;
         esac
         
         ;;
@@ -307,7 +307,7 @@ if [ "$current_ip" != "$old_ip" ]
                 fi
             fi
             ;;
-    
+        
     # dyndns.org
         2)
 	    dyndnsorg_ip=$current_ip;
@@ -367,12 +367,12 @@ if [ "$current_ip" != "$old_ip" ]
    	    ;;
         T)
             # testing option for scripting, that you dont get banned from a service
-         	if [ $SILENT -eq "0" ]; then
-			   $echo "Doing nothing as well :)"
+            if [ $SILENT -eq "0" ]; then
+                $echo "Doing nothing as well :)"
             fi
             ;;
     esac
-
+    
     $echo $current_ip > $ip_cache
     
     #logging
