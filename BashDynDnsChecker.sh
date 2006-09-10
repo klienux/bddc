@@ -1,5 +1,5 @@
 #!/bin/bash
-# version 0.0.5b
+# bddc version 0.0.6b
 #####################################################################################
 # licensed under the                                                                #
 # The MIT License                                                                   #
@@ -86,7 +86,7 @@ curl=curl
 # 2 -> log when ip changes
 # 1 -> log errors
 # 0 -> log nothing
-LOGGING=0
+LOGGING=2
 LOGFILE=/var/log/bddc.log
 
 # cache file for ip address
@@ -154,6 +154,7 @@ wgt624_url=RST_status.htm
 # mode of syndication
 # 1 -> use afraid.org url
 # 2 -> use dyndns.org
+# 3 -> use no-ip.com
 # T -> testing option (doing nothing)
 IPSYNMODE=T
 
@@ -179,9 +180,18 @@ dyndnsorg_offline=NO
 dyndnsorg_ip=
 #-----------/dyndns.org----------------
 
+#------------no-ip.com-----------------
+# ad 3: your data you got at no-ip.com
+# username is an email address
+noipcom_username=USERNAME@yourdomain.com
+noipcom_passwd=PASSWD
+noipcom_hostnameS=yourip.no-ip.org
+#for testing
+noipcom_ip=
+#-----------/no-ip.com-----------------
 
 # the name of the client that is sent with updates and requests
-bddc_name="bashdyndnschecker (bddc)"
+bddc_name="bashdyndnschecker (bddc v0.0.5b)/bddc.sf.net"
 
 # the url that needs the dyndns (has no sense in this release)
 my_url=your.domain.com
@@ -376,7 +386,7 @@ if [ "$current_ip" != "$old_ip" ]
                     $echo "dyndns.org: ERROR bad authentication (${dyndnsorg_feedback})"
                 fi
                 if [ $LOGGING -ge "1" ]; then
-                    $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: ERROR bad authentication (${dyndnsorg_feedback})" >> $LOGFILE && exit 1
+                    $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: ERROR bad authentication (${dyndnsorg_feedback})" >> $LOGFILE && exit 2
                 fi 
             fi
 	    if [ "${dyndnsorg_feedback:0:4}" == "good" ]; then
@@ -399,10 +409,66 @@ if [ "$current_ip" != "$old_ip" ]
                 $echo "dyndns.org: $dyndnsorg_feedback"
             fi
    	    ;;
+        3)
+	    noipcom_ip=$current_ip;
+            myurl=`$echo "http://dynupdate.no-ip.com/nic/update?hostname=${noipcom_hostnameS}&myip=${noipcom_ip}"`
+            noipcom_feedback=`$curl -s -A '${bddc_name}' --basic -u ${noipcom_username}:${noipcom_passwd} ${myurl}`
+            if [ "${noipcom_feedback:0:8}" == "badagent" ]; then
+                if [ $SILENT -eq "0" ]; then
+                    $echo "no-ip.com: ERROR The user agent that was sent has been blocked for not following the specifications (${noipcom_feedback})"
+                fi
+                if [ $LOGGING -ge "1" ]; then
+                    $echo "[`$date +%d/%b/%Y:%T`] | no-ip.com: ERROR Client disabled. Client should exit and not perform any more updates without user intervention. (${noipcom_feedback})" >> $LOGFILE && exit 1
+                fi 
+            fi
+	    if [  "${noipcom_feedback:0:5}" == "abuse" ]; then
+                if [ $SILENT -eq "0" ]; then
+                    $echo "no-ip.com: ERROR Account disabled due to violation of No-IP terms of service. Our terms of service can be viewed at http://www.no-ip.com/legal/tos (${noipcom_feedback})"
+                fi
+                if [ $LOGGING -ge "1" ]; then
+                    $echo "[`$date +%d/%b/%Y:%T`] | no-ip.com: ERROR Account disabled due to violation of No-IP terms of service. Our terms of service can be viewed at http://www.no-ip.com/legal/tos (${noipcom_feedback})" >> $LOGFILE && exit 1
+                fi 
+            fi
+	    if [ "${noipcom_feedback:0:6}" == "nohost" ]; then
+                if [ $SILENT -eq "0" ]; then
+                    $echo "no-ip.com: ERROR Hostname supplied does not exist (${noipcom_feedback})"
+                fi
+                if [ $LOGGING -ge "1" ]; then
+                    $echo "[`$date +%d/%b/%Y:%T`] | no-ip.com: ERROR Hostname supplied does not exist (${noipcom_feedback})" >> $LOGFILE && exit 1
+                fi 
+            fi
+	    if [ "${noipcom_feedback:0:7}" == "badauth" ]; then
+                if [ $SILENT -eq "0" ]; then
+                    $echo "no-ip.com: ERROR Invalid username (${noipcom_feedback})"
+                fi
+                if [ $LOGGING -ge "1" ]; then
+                    $echo "[`$date +%d/%b/%Y:%T`] | no-ip.com: ERROR Invalid username (${noipcom_feedback})" >> $LOGFILE && exit 2
+                fi 
+            fi
+	    if [ "${noipcom_feedback:0:4}" == "good" ]; then
+                if [ $SILENT -eq "0" ]; then
+                    $echo "no-ip.com: DNS hostname update successful (${noipcom_feedback})"
+                fi
+                if [ $LOGGING -ge "2" ]; then
+                    $echo "[`$date +%d/%b/%Y:%T`] | no-ip.com: DNS hostname update successful (${noipcom_feedback})" >> $LOGFILE
+                fi
+            fi
+	    if [ "${noipcom_feedback:0:5}" == "nochg" ]; then
+                if [ $SILENT -eq "0" ]; then
+                    $echo "no-ip.com: IP address is current, no update performed (${noipcom_feedback})"
+                fi
+                if [ $LOGGING -ge "3" ]; then
+                    $echo "[`$date +%d/%b/%Y:%T`] | no-ip.com: IP address is current, no update performed (${noipcom_feedback})" >> $LOGFILE
+                fi
+            fi
+	    if [ $SILENT -eq "0" ]; then
+                $echo "no-ip.com: $noipcom_feedback"
+            fi
+   	    ;;
         T)
             # testing option for scripting, that you dont get banned from a service
             if [ $SILENT -eq "0" ]; then
-                $echo "Doing nothing as well :)"
+                $echo "Performing no update ;)"
             fi
             ;;
     esac
