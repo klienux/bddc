@@ -120,10 +120,10 @@ router_tmp_file=/tmp/bddc_router_tmp_file
 
 #-------DLink-DI-624---------
 # ad 1: DLink DI-624 conf
-dlink_user=ADMIN
-dlink_passwd=PASSWD
+dlink_user='ADMIN'
+dlink_passwd='PASSWD'
 dlink_ip=192.168.0.1
-# this helps parsing (do not change)
+# this helps parsing
 dlink_url=st_devic.html
 dlink_mode=WAN
 dlink_wan_mode=PPTP
@@ -131,8 +131,8 @@ dlink_wan_mode=PPTP
 
 #-------Netgear-TA612V--------
 # ad 2: Netgear-TA612V conf
-netgear1_user=ADMIN
-netgear1_passwd=PASSWD
+netgear1_user='ADMIN'
+netgear1_passwd='PASSWD'
 netgear1_ip=192.168.0.1
 # this helps parsing (do not change)
 netgear1_url=s_status.htm
@@ -140,8 +140,8 @@ netgear1_url=s_status.htm
 
 #-------WGT-624--------
 # ad 3: WGT 624 conf
-wgt624_user=ADMIN
-wgt624_passwd=PASSWD
+wgt624_user='ADMIN'
+wgt624_passwd='PASSWD'
 wgt624_ip=192.168.0.1
 # this helps parsing (do not change)
 wgt624_url=RST_status.htm
@@ -167,10 +167,10 @@ afraid_url=http://freedns.afraid.org/dynamic/update.php.........................
 
 
 #------------dyndns.org----------------
-# ad 2: your data you got at dyndns.org
-dyndnsorg_username=USER
-dyndnsorg_passwd=PASSWD
-dyndnsorg_hostnameS=URL.dyndns.org
+# ad 2: data you got at dyndns.org
+dyndnsorg_username='USER'
+dyndnsorg_passwd='PASSWD'
+dyndnsorg_hostnameS=URL.HOSTNAME-YOU.GOT
 #--do not edit-----
 dyndnsorg_wildcard=NOCHG
 dyndnsorg_mail=NOCHG
@@ -183,9 +183,9 @@ dyndnsorg_ip=
 #------------no-ip.com-----------------
 # ad 3: your data you got at no-ip.com
 # username is an email address
-noipcom_username=USERNAME@yourdomain.com
-noipcom_passwd=PASSWD
-noipcom_hostnameS=yourip.no-ip.org
+noipcom_username='USERNAME@yourdomain.com'
+noipcom_passwd='PASSWD'
+noipcom_hostnameS=yoururl.you-got-at-no-ip.org
 #for testing
 noipcom_ip=
 #-----------/no-ip.com-----------------
@@ -266,9 +266,9 @@ case "$CHECKMODE" in
                 if [ $loginIsValid == 0 ]; then
                     exit 2
                	fi
-                string=`$curl -s --anyauth -u ${dlink_user}:${dlink_passwd} -o "${router_tmp_file}" http://${dlink_ip}/${dlink_url}`
+                string=`$curl -s --anyauth -u ${dlink_user}:"${dlink_passwd}" -o "${router_tmp_file}" http://${dlink_ip}/${dlink_url}`
                 line=`$grep -A 20 ${dlink_mode} ${router_tmp_file} | $grep onnected`
-                line2=${line#"                    PPTP "}
+                line2=${line#"                    ${dlink_wan_mode} "}
                 disconnected=${line2:0:9} # cutting Connected out of file
                 if [ "$disconnected" != "Connected" ]; then
                     if [ $SILENT -eq 0 ]; then
@@ -289,7 +289,7 @@ case "$CHECKMODE" in
                 if [ $loginIsValid == 0 ]; then
                     exit 2
                	fi
-               	string=`$curl -s --anyauth -u ${netgear1_user}:${netgear1_passwd} -o "${router_tmp_file}" http://${netgear1_ip}/${netgear1_url}`
+               	string=`$curl -s --anyauth -u ${netgear1_user}:"${netgear1_passwd}" -o "${router_tmp_file}" http://${netgear1_ip}/${netgear1_url}`
                	current_ip=`grep -A 20 'Internet Port' ${router_tmp_file} | grep -A 1 'IP Address'|egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | sed 's/<[^>]*>//g;/</N;'|sed 's/^[^0-9]*//;s/[^0-9]*$//'`
                 if [ -z "$current_ip" ]; then
                     if [ $SILENT -eq 0 ]; then
@@ -309,7 +309,7 @@ case "$CHECKMODE" in
                 if [ $loginIsValid == 0 ]; then
                     exit 2
                 fi
-                string=`$curl -s --anyauth -u ${wgt624_user}:${wgt624_passwd} -o "${router_tmp_file}" http://${wgt624_ip}/${wgt624_url}`
+                string=`$curl -s --anyauth -u ${wgt624_user}:"${wgt624_passwd}" -o "${router_tmp_file}" http://${wgt624_ip}/${wgt624_url}`
                 current_ip=`$grep -A 20 'Internet Port' ${router_tmp_file}| $grep -A 1 'IP Address' | $egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $sed 's/<[^>]*>//g;/</N;'| $sed 's/^[^0-9]*//;s/[^0-9]*$//'`
                 if [ "$current_ip" == "0.0.0.0" ]; then
                     if [ $SILENT -eq 0 ]; then
