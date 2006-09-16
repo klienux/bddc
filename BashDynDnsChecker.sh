@@ -1,5 +1,5 @@
 #!/bin/bash
-# bddc version 0.0.6b
+# bddc version 0.0.7b
 #####################################################################################
 # licensed under the                                                                #
 # The MIT License                                                                   #
@@ -130,7 +130,7 @@ router_tmp_file=/tmp/bddc_router_tmp_file
 dlink_user='ADMIN'
 dlink_passwd='PASSWD'
 dlink_ip=192.168.0.1
-# this helps parsing
+# this helps parsing (do not change)
 dlink_url=st_devic.html
 dlink_mode=WAN
 dlink_wan_mode=PPTP
@@ -141,7 +141,7 @@ dlink_wan_mode=PPTP
 netgear1_user='ADMIN'
 netgear1_passwd='PASSWD'
 netgear1_ip=192.168.0.1
-# this helps parsing
+# this helps parsing (do not change)
 netgear1_url=s_status.htm
 netgear1_logout=logout.htm
 #------/Netgear-TA612V--------
@@ -151,7 +151,7 @@ netgear1_logout=logout.htm
 wgt624_user='ADMIN'
 wgt624_passwd='PASSWD'
 wgt624_ip=192.168.0.1
-# this helps parsing
+# this helps parsing (do not change)
 wgt624_url=RST_status.htm
 wgt624_logout=LGO_logout.htm
 #-------/Netgear WGT-624-------
@@ -176,7 +176,7 @@ afraid_url=http://freedns.afraid.org/dynamic/update.php.........................
 
 
 #------------dyndns.org----------------
-# ad 2: your data you got at dyndns.org
+# ad 2: data you got at dyndns.org
 dyndnsorg_username='USER'
 dyndnsorg_passwd='PASSWD'
 dyndnsorg_hostnameS=URL.HOSTNAME-YOU.GOT
@@ -200,7 +200,7 @@ noipcom_ip=
 #-----------/no-ip.com-----------------
 
 # the name of the client that is sent with updates and requests
-bddc_name="bashdyndnschecker (bddc v0.0.6b)/bddc.sf.net"
+bddc_name="bashdyndnschecker (bddc v0.0.7b)/bddc.sf.net"
 
 # the url that needs the dyndns (has no sense in this release)
 my_url=your.domain.com
@@ -304,7 +304,7 @@ case "$CHECKMODE" in
                         $echo "ERROR: DLink DI-624 internet interface is down!"
                     fi
                     if [ $LOGGING -ge 1 ]; then
-                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: DLink DI-624 Internet interface is down!" >> $LOGFILE && exit 1;
+                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: DLink DI-624 Internet interface is down!" >> $LOGFILE && exit 1
                     fi 
                 fi
                 current_ip=`$grep -A 30 ${dlink_mode} ${router_tmp_file} | $grep -A 9 ${dlink_wan_mode} | $tail -n 1 | $cut -d " " -f 21`
