@@ -39,7 +39,7 @@
 # supports ip reception from ifconfig, an external url (by http)                    #
 # and parsing from a router.                                                        #
 #                                                                                   #
-# supports dyndns synchronization with afraid.org and dyndns.org                    #
+# supports dyndns synchronization with afraid.org, dyndns.org and no-ip.com         #
 #                                                                                   #
 # it needs to be called in crontab as a cronjob, or any other similar               #
 # perpetual program.                                                                #
@@ -52,6 +52,7 @@
 # *) the url under which the external ip can be read from your router               #
 # *) a copy of the html source code from this site (each online and offline)        #
 # *) the complete name of your router                                               #
+# *) the url to call for logout of the router                                       #
 # *) your name and email address for contact and testing purpose before             #
 #    a release is done.                                                             #
 # OR, what we prefer                                                                #
@@ -60,9 +61,10 @@
 # *) plus full name of the router                                                   #
 #                                                                                   #
 # exit codes:                                                                       #
-# 0 -> everything went fine                                                         #
-# 1 -> some error occured during runtime                                            #
-# 2 -> some config error was caught                                                 #
+# 0  -> everything went fine                                                        #
+# 1  -> some error occured during runtime                                           #
+# 2  -> some config error was caught                                                #
+# 28 -> timeout at connecting to some host                                          #
 #                                                                                   #
 #####################################################################################
 # change to your needs                                                              #
@@ -92,6 +94,8 @@ LOGFILE=/var/log/bddc.log
 # cache file for ip address
 ip_cache=/tmp/bddc-ip-add.cache
 
+html_tmp_file=/tmp/bddc_html_tmp_file
+
 # turn silent mode on (no echo while running, [1 is silent])
 SILENT=1
 
@@ -109,13 +113,16 @@ inet_if=eth0
 #################################
 # ad 2: remote url to get ip from over http
 check_url=http://whatismyip.com
+# seconds to try for remote host:
+remote_timeout=10
 
 ########### R O U T E R #########
 # ad 3: router model
 # 1 -> DLink DI-624
 # 2 -> Netgear-TA612V
-# 3 -> WGT-624
+# 3 -> Netgear WGT-624
 ROUTER=1
+router_timeout=5
 router_tmp_file=/tmp/bddc_router_tmp_file
 
 #-------DLink-DI-624---------
@@ -134,18 +141,20 @@ dlink_wan_mode=PPTP
 netgear1_user='ADMIN'
 netgear1_passwd='PASSWD'
 netgear1_ip=192.168.0.1
-# this helps parsing (do not change)
+# this helps parsing
 netgear1_url=s_status.htm
+netgear1_logout=logout.htm
 #------/Netgear-TA612V--------
 
-#-------WGT-624--------
+#-------Netgear WGT-624--------
 # ad 3: WGT 624 conf
 wgt624_user='ADMIN'
 wgt624_passwd='PASSWD'
 wgt624_ip=192.168.0.1
-# this helps parsing (do not change)
+# this helps parsing
 wgt624_url=RST_status.htm
-#-------/WGT-624-------
+wgt624_logout=LGO_logout.htm
+#-------/Netgear WGT-624-------
 ######### / R O U T E R #########
 
 
@@ -167,7 +176,7 @@ afraid_url=http://freedns.afraid.org/dynamic/update.php.........................
 
 
 #------------dyndns.org----------------
-# ad 2: data you got at dyndns.org
+# ad 2: your data you got at dyndns.org
 dyndnsorg_username='USER'
 dyndnsorg_passwd='PASSWD'
 dyndnsorg_hostnameS=URL.HOSTNAME-YOU.GOT
@@ -191,7 +200,7 @@ noipcom_ip=
 #-----------/no-ip.com-----------------
 
 # the name of the client that is sent with updates and requests
-bddc_name="bashdyndnschecker (bddc v0.0.5b)/bddc.sf.net"
+bddc_name="bashdyndnschecker (bddc v0.0.6b)/bddc.sf.net"
 
 # the url that needs the dyndns (has no sense in this release)
 my_url=your.domain.com
@@ -251,9 +260,20 @@ case "$CHECKMODE" in
     # remote website mode 
     2)
     	# only edit if you know what you do!
-    	# edit to a form that only the ip remains when you get the html file
+    	# edit line of current_ip to a form that only the ip remains when you get the html file
 		# in this format: '123.123.132.132'
-        current_ip=`$curl -s -A '${bddc_name}' $check_url | $egrep -e ^[\ \t]*\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}| $sed 's/ //g'`
+        string=`$curl --connect-timeout ${remote_timeout} -s -A '${bddc_name}' $check_url -o ${html_tmp_file}`
+		if [ "28" -eq `echo $?` ]; then
+			if [ $SILENT -eq 0 ]; then
+                        $echo "ERROR: timeout (${remote_timeout} second(s) tried on host: ${check_url})"
+            fi
+            if [ $LOGGING -ge 1 ]; then
+                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${remote_timeout} second(s) tried on host: ${check_url})" >> $LOGFILE
+            fi
+ 			exit 28;
+		fi
+        current_ip=`$cat $html_tmp_file | $egrep -e ^[\ \t]*\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}| $sed 's/ //g'`
+		rm $html_tmp_file
         ;;
     
 	# router per http mode
@@ -266,7 +286,16 @@ case "$CHECKMODE" in
                 if [ $loginIsValid == 0 ]; then
                     exit 2
                	fi
-                string=`$curl -s --anyauth -u ${dlink_user}:"${dlink_passwd}" -o "${router_tmp_file}" http://${dlink_ip}/${dlink_url}`
+                string=`$curl --connect-timeout '${router_timeout}' -s --anyauth -u ${dlink_user}:"${dlink_passwd}" -o "${router_tmp_file}" http://${dlink_ip}/${dlink_url}`
+                if [ "28" -eq `echo $?` ]; then
+			if [ $SILENT -eq 0 ]; then
+                        $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${dlink_ip}/${dlink_url})"
+            fi
+            if [ $LOGGING -ge 1 ]; then
+                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${router_timeout} second(s) tried on host: http://${dlink_ip}/${dlink_url})" >> $LOGFILE
+            fi
+ 			exit 28;
+		fi
                 line=`$grep -A 20 ${dlink_mode} ${router_tmp_file} | $grep onnected`
                 line2=${line#"                    ${dlink_wan_mode} "}
                 disconnected=${line2:0:9} # cutting Connected out of file
@@ -275,7 +304,7 @@ case "$CHECKMODE" in
                         $echo "ERROR: DLink DI-624 internet interface is down!"
                     fi
                     if [ $LOGGING -ge 1 ]; then
-                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: DLink DI-624 Internet interface is down!" >> $LOGFILE && exit 1
+                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: DLink DI-624 Internet interface is down!" >> $LOGFILE && exit 1;
                     fi 
                 fi
                 current_ip=`$grep -A 30 ${dlink_mode} ${router_tmp_file} | $grep -A 9 ${dlink_wan_mode} | $tail -n 1 | $cut -d " " -f 21`
@@ -289,7 +318,16 @@ case "$CHECKMODE" in
                 if [ $loginIsValid == 0 ]; then
                     exit 2
                	fi
-               	string=`$curl -s --anyauth -u ${netgear1_user}:"${netgear1_passwd}" -o "${router_tmp_file}" http://${netgear1_ip}/${netgear1_url}`
+               	string=`$curl --connect-timeout '${router_timeout}' -s --anyauth -u ${netgear1_user}:"${netgear1_passwd}" -o "${router_tmp_file}" http://${netgear1_ip}/${netgear1_url}`
+                if [ "28" -eq `echo $?` ]; then
+			if [ $SILENT -eq 0 ]; then
+                        $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${netgear1_ip}/${netgear1_url})"
+            fi
+            if [ $LOGGING -ge 1 ]; then
+                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${router_timeout} second(s) tried on host: http://${netgear1_ip}/${netgear1_url})" >> $LOGFILE 
+            fi
+ 			exit 28;
+		fi
                	current_ip=`grep -A 20 'Internet Port' ${router_tmp_file} | grep -A 1 'IP Address'|egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | sed 's/<[^>]*>//g;/</N;'|sed 's/^[^0-9]*//;s/[^0-9]*$//'`
                 if [ -z "$current_ip" ]; then
                     if [ $SILENT -eq 0 ]; then
@@ -299,18 +337,37 @@ case "$CHECKMODE" in
                         $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Netgear-TA612V Internet interface is down!" >> $LOGFILE && exit 1
                     fi 
                 fi
+                $curl --connect-timeout '${router_timeout}' -s --anyauth -u ${netgear1_user}:${netgear1_passwd} http://${netgear1_ip}/${netgear1_logout}
+                 if [ "28" -eq `echo $?` ]; then
+			if [ $SILENT -eq 0 ]; then
+                        $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${netgear1_ip}/${netgear1_logout})"
+            fi
+            if [ $LOGGING -ge 1 ]; then
+                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${router_timeout} second(s) tried on host: http://${netgear1_ip}/${netgear1_logout})" >> $LOGFILE 
+            fi
+ 			exit 28;
+		fi
                 rm ${router_tmp_file}
                 ;;
             
-             # WGT 624
+             # Netgear WGT 624
             3)
              	login_data_valid ${wgt624_user} ${wgt624_passwd}
              	loginIsValid=$?
                 if [ $loginIsValid == 0 ]; then
                     exit 2
                 fi
-                string=`$curl -s --anyauth -u ${wgt624_user}:"${wgt624_passwd}" -o "${router_tmp_file}" http://${wgt624_ip}/${wgt624_url}`
-                current_ip=`$grep -A 20 'Internet Port' ${router_tmp_file}| $grep -A 1 'IP Address' | $egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $sed 's/<[^>]*>//g;/</N;'| $sed 's/^[^0-9]*//;s/[^0-9]*$//'`
+                string=`$curl --connect-timeout '${router_timeout}' -s --anyauth -u ${wgt624_user}:"${wgt624_passwd}" -o "${router_tmp_file}" http://${wgt624_ip}/${wgt624_url}`
+               if [ "28" -eq `echo $?` ]; then
+			if [ $SILENT -eq 0 ]; then
+                        $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${wgt624_ip}/${wgt624_url})"
+            fi
+            if [ $LOGGING -ge 1 ]; then
+                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${router_timeout} second(s) tried on host: http://${wgt624_ip}/${wgt624_url})" >> $LOGFILE 
+            fi
+ 			exit 28;
+		fi
+		current_ip=`$grep -A 20 'Internet Port' ${router_tmp_file}| $grep -A 1 'IP Address' | $egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $sed 's/<[^>]*>//g;/</N;'| $sed 's/^[^0-9]*//;s/[^0-9]*$//'`
                 if [ "$current_ip" == "0.0.0.0" ]; then
                     if [ $SILENT -eq 0 ]; then
                         $echo "ERROR: WGT 624 internet interface is down!"
@@ -319,6 +376,16 @@ case "$CHECKMODE" in
                         $echo "[`$date +%d/%b/%Y:%T`] | ERROR: WGT 624 Internet interface is down!" >> $LOGFILE && exit 1
                     fi 
                 fi
+                $curl --connect-timeout '${router_timeout}' -s --anyauth -u ${wgt624_user}:${wgt624_passwd} http://${wgt624_ip}/${wgt624_logout}
+                 if [ "28" -eq `echo $?` ]; then
+			if [ $SILENT -eq 0 ]; then
+                        $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${wgt624_ip}/${wgt624_logout})"
+            fi
+            if [ $LOGGING -ge 1 ]; then
+                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${router_timeout} second(s) tried on host: http://${wgt624_ip}/${wgt624_logout})" >> $LOGFILE 
+            fi
+ 			exit 28;
+		fi
                 rm ${router_tmp_file}
                 ;;
         esac
@@ -340,8 +407,17 @@ if [ "$current_ip" != "$old_ip" ]
         # afraid.org
         1)
         	# afraid.org gets IP over the http request of your url
-            afraid_feedback=`$curl -A '${bddc_name}' -s $afraid_url`
-            checker=$afraid_feedback
+            afraid_feedback=`$curl --connect-timeout '${remote_timeout}' -A '${bddc_name}' -s $afraid_url`
+             if [ "28" -eq `echo $?` ]; then
+			if [ $SILENT -eq 0 ]; then
+                        $echo "ERROR: timeout (${remote_timeout} second(s) tried on host: ${afraid_url})"
+            fi
+            if [ $LOGGING -ge 1 ]; then
+                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${remote_timeout} second(s) tried on host: ${afraid_url})" >> $LOGFILE 
+            fi
+ 			exit 28;
+			fi
+			checker=$afraid_feedback
             if [ "ERROR" = ${checker:0:5} ]; then
                 if [ $SILENT -eq "0" ]; then
                     $echo "afraid.org: ${afraid_feedback}"
@@ -356,8 +432,17 @@ if [ "$current_ip" != "$old_ip" ]
         2)
 	    dyndnsorg_ip=$current_ip;
             myurl=`$echo "http://${dyndnsorg_username}:${dyndnsorg_passwd}@members.dyndns.org/nic/update?system=dyndns&hostname=${dyndnsorg_hostnameS}&myip=${dyndnsorg_ip}&wildcard=${dyndnsorg_wildcard}&mx=${dyndnsorg_mail}&backmx=${dyndnsorg_backmx}&offline=${dyndnsorg_offline}"`
-            dyndnsorg_feedback=`$curl -s -A '${bddc_name}' ${myurl}`
-            if [ "${dyndnsorg_feedback:0:8}" == "badagent" ]; then
+            dyndnsorg_feedback=`$curl --connect-timeout '${remote_timeout}' -s -A '${bddc_name}' ${myurl}`
+            if [ "28" -eq `echo $?` ]; then
+			if [ $SILENT -eq 0 ]; then
+                        $echo "ERROR: timeout (${remote_timeout} second(s) tried on host: ${myurl})"
+            fi
+            if [ $LOGGING -ge 1 ]; then
+                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${remote_timeout} second(s) tried on host: ${myurl})" >> $LOGFILE 
+            fi
+ 			exit 28;
+			fi
+			if [ "${dyndnsorg_feedback:0:8}" == "badagent" ]; then
                 if [ $SILENT -eq "0" ]; then
                     $echo "dyndns.org: ERROR The user agent that was sent has been blocked for not following the specifications (${dyndnsorg_feedback})"
                 fi
@@ -412,7 +497,16 @@ if [ "$current_ip" != "$old_ip" ]
         3)
 	    noipcom_ip=$current_ip;
             myurl=`$echo "http://dynupdate.no-ip.com/nic/update?hostname=${noipcom_hostnameS}&myip=${noipcom_ip}"`
-            noipcom_feedback=`$curl -s -A '${bddc_name}' --basic -u ${noipcom_username}:${noipcom_passwd} ${myurl}`
+            noipcom_feedback=`$curl --connect-timeout '${remote_timeout}' -s -A '${bddc_name}' --basic -u ${noipcom_username}:${noipcom_passwd} ${myurl}`
+            if [ "28" -eq `echo $?` ]; then
+			if [ $SILENT -eq 0 ]; then
+                        $echo "ERROR: timeout (${remote_timeout} second(s) tried on host: ${myurl})"
+            fi
+            if [ $LOGGING -ge 1 ]; then
+                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${remote_timeout} second(s) tried on host: ${myurl})" >> $LOGFILE 
+            fi
+ 			exit 28;
+			fi
             if [ "${noipcom_feedback:0:8}" == "badagent" ]; then
                 if [ $SILENT -eq "0" ]; then
                     $echo "no-ip.com: ERROR The user agent that was sent has been blocked for not following the specifications (${noipcom_feedback})"
