@@ -1,5 +1,5 @@
 #!/bin/bash
-# bddc version 0.0.7b
+# bddc version 0.0.7
 #####################################################################################
 # licensed under the                                                                #
 # The MIT License                                                                   #
@@ -200,7 +200,7 @@ noipcom_ip=
 #-----------/no-ip.com-----------------
 
 # the name of the client that is sent with updates and requests
-bddc_name="bashdyndnschecker (bddc v0.0.7b)/bddc.sf.net"
+bddc_name="bashdyndnschecker (bddc v0.0.7)/bddc.sf.net"
 
 # the url that needs the dyndns (has no sense in this release)
 my_url=your.domain.com
