@@ -286,7 +286,7 @@ case "$CHECKMODE" in
                 if [ $loginIsValid == 0 ]; then
                     exit 2
                	fi
-                string=`$curl --connect-timeout '${router_timeout}' -s --anyauth -u ${dlink_user}:"${dlink_passwd}" -o "${router_tmp_file}" http://${dlink_ip}/${dlink_url}`
+                string=`$curl --connect-timeout "${router_timeout}" -s --anyauth -u ${dlink_user}:"${dlink_passwd}" -o "${router_tmp_file}" http://${dlink_ip}/${dlink_url}`
                 if [ "28" -eq `echo $?` ]; then
 			if [ $SILENT -eq 0 ]; then
                         $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${dlink_ip}/${dlink_url})"
@@ -318,7 +318,7 @@ case "$CHECKMODE" in
                 if [ $loginIsValid == 0 ]; then
                     exit 2
                	fi
-               	string=`$curl --connect-timeout '${router_timeout}' -s --anyauth -u ${netgear1_user}:"${netgear1_passwd}" -o "${router_tmp_file}" http://${netgear1_ip}/${netgear1_url}`
+               	string=`$curl --connect-timeout "${router_timeout}" -s --anyauth -u ${netgear1_user}:"${netgear1_passwd}" -o "${router_tmp_file}" http://${netgear1_ip}/${netgear1_url}`
                 if [ "28" -eq `echo $?` ]; then
 			if [ $SILENT -eq 0 ]; then
                         $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${netgear1_ip}/${netgear1_url})"
@@ -337,7 +337,7 @@ case "$CHECKMODE" in
                         $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Netgear-TA612V Internet interface is down!" >> $LOGFILE && exit 1
                     fi 
                 fi
-                $curl --connect-timeout '${router_timeout}' -s --anyauth -u ${netgear1_user}:${netgear1_passwd} http://${netgear1_ip}/${netgear1_logout}
+                $curl --connect-timeout "${router_timeout}" -s --anyauth -u ${netgear1_user}:${netgear1_passwd} http://${netgear1_ip}/${netgear1_logout}
                  if [ "28" -eq `echo $?` ]; then
 			if [ $SILENT -eq 0 ]; then
                         $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${netgear1_ip}/${netgear1_logout})"
@@ -357,7 +357,7 @@ case "$CHECKMODE" in
                 if [ $loginIsValid == 0 ]; then
                     exit 2
                 fi
-                string=`$curl --connect-timeout '${router_timeout}' -s --anyauth -u ${wgt624_user}:"${wgt624_passwd}" -o "${router_tmp_file}" http://${wgt624_ip}/${wgt624_url}`
+                string=`$curl --connect-timeout "${router_timeout}" -s --anyauth -u ${wgt624_user}:"${wgt624_passwd}" -o "${router_tmp_file}" http://${wgt624_ip}/${wgt624_url}`
                if [ "28" -eq `echo $?` ]; then
 			if [ $SILENT -eq 0 ]; then
                         $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${wgt624_ip}/${wgt624_url})"
@@ -376,7 +376,7 @@ case "$CHECKMODE" in
                         $echo "[`$date +%d/%b/%Y:%T`] | ERROR: WGT 624 Internet interface is down!" >> $LOGFILE && exit 1
                     fi 
                 fi
-                $curl --connect-timeout '${router_timeout}' -s --anyauth -u ${wgt624_user}:${wgt624_passwd} http://${wgt624_ip}/${wgt624_logout}
+                $curl --connect-timeout "${router_timeout}" -s --anyauth -u ${wgt624_user}:${wgt624_passwd} http://${wgt624_ip}/${wgt624_logout}
                  if [ "28" -eq `echo $?` ]; then
 			if [ $SILENT -eq 0 ]; then
                         $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${wgt624_ip}/${wgt624_logout})"
@@ -407,7 +407,7 @@ if [ "$current_ip" != "$old_ip" ]
         # afraid.org
         1)
         	# afraid.org gets IP over the http request of your url
-            afraid_feedback=`$curl --connect-timeout '${remote_timeout}' -A '${bddc_name}' -s $afraid_url`
+            afraid_feedback=`$curl --connect-timeout "${remote_timeout}" -A '${bddc_name}' -s $afraid_url`
              if [ "28" -eq `echo $?` ]; then
 			if [ $SILENT -eq 0 ]; then
                         $echo "ERROR: timeout (${remote_timeout} second(s) tried on host: ${afraid_url})"
@@ -432,7 +432,7 @@ if [ "$current_ip" != "$old_ip" ]
         2)
 	    dyndnsorg_ip=$current_ip;
             myurl=`$echo "http://${dyndnsorg_username}:${dyndnsorg_passwd}@members.dyndns.org/nic/update?system=dyndns&hostname=${dyndnsorg_hostnameS}&myip=${dyndnsorg_ip}&wildcard=${dyndnsorg_wildcard}&mx=${dyndnsorg_mail}&backmx=${dyndnsorg_backmx}&offline=${dyndnsorg_offline}"`
-            dyndnsorg_feedback=`$curl --connect-timeout '${remote_timeout}' -s -A '${bddc_name}' ${myurl}`
+            dyndnsorg_feedback=`$curl --connect-timeout "${remote_timeout}" -s -A '${bddc_name}' ${myurl}`
             if [ "28" -eq `echo $?` ]; then
 			if [ $SILENT -eq 0 ]; then
                         $echo "ERROR: timeout (${remote_timeout} second(s) tried on host: ${myurl})"
@@ -497,7 +497,7 @@ if [ "$current_ip" != "$old_ip" ]
         3)
 	    noipcom_ip=$current_ip;
             myurl=`$echo "http://dynupdate.no-ip.com/nic/update?hostname=${noipcom_hostnameS}&myip=${noipcom_ip}"`
-            noipcom_feedback=`$curl --connect-timeout '${remote_timeout}' -s -A '${bddc_name}' --basic -u ${noipcom_username}:${noipcom_passwd} ${myurl}`
+            noipcom_feedback=`$curl --connect-timeout "${remote_timeout}" -s -A '${bddc_name}' --basic -u ${noipcom_username}:${noipcom_passwd} ${myurl}`
             if [ "28" -eq `echo $?` ]; then
 			if [ $SILENT -eq 0 ]; then
                         $echo "ERROR: timeout (${remote_timeout} second(s) tried on host: ${myurl})"
