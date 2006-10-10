@@ -262,7 +262,7 @@ case "$CHECKMODE" in
     	# only edit if you know what you do!
     	# edit line of current_ip to a form that only the ip remains when you get the html file
 		# in this format: '123.123.132.132'
-        string=`$curl --connect-timeout ${remote_timeout} -s -A '${bddc_name}' $check_url -o ${html_tmp_file}`
+        string=`$curl --connect-timeout "${remote_timeout}" -s -A '${bddc_name}' $check_url -o ${html_tmp_file}`
 		if [ "28" -eq `echo $?` ]; then
 			if [ $SILENT -eq 0 ]; then
                         $echo "ERROR: timeout (${remote_timeout} second(s) tried on host: ${check_url})"
