@@ -449,10 +449,10 @@ if [ $ping_check -eq 1 ]; then
         old_ip="0.0.0.0" 
 
         if [ $SILENT -eq 0 ]; then
-            $echo "ERROR: your dns service did not update your url the first time"
+            $echo "ERROR: your dns service did not update your ip the first time"
         fi
         if [ $LOGGING -ge 1 ]; then
-            $echo -e "[`$date +%d/%b/%Y:%T`] | ERROR: your dns service did not update your url the first time\nip was in dns record is: $ns_ip, your ip is: $current_ip" >> $LOGFILE 
+            $echo "[`$date +%d/%b/%Y:%T`] | ERROR: your dns service did not update your ip the first time\n                         dns record is: $ns_ip, your ip is: $current_ip" >> $LOGFILE 
         fi
     fi
 fi
