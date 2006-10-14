@@ -441,23 +441,6 @@ esac
 
 #---------IP-syndication-part--------------------
 old_ip=`$cat $ip_cache`
-# check if nameserver got ip!
-if [ $ping_check -eq 1 ]; then
-    ns_ip=`$ping -c 1 ${my_url} | $grep PING | $cut -d \( -f 2 | $cut -d \) -f 1`
-    if [ "$current_ip" != "$ns_ip" ]; then
-        #update necessarry
-        old_ip="0.0.0.0" 
-
-        if [ $SILENT -eq 0 ]; then
-            $echo "ERROR: your dns service did not update your ip the first time"
-        fi
-        if [ $LOGGING -ge 1 ]; then
-            $echo "[`$date +%d/%b/%Y:%T`] | ERROR: your dns service did not update your ip the first time\n                         dns record is: $ns_ip, your ip is: $current_ip" >> $LOGFILE 
-        fi
-    fi
-fi
-#/ check if nameserver got ip!
-
 if [ "$current_ip" != "$old_ip" ]
     then
     
@@ -626,7 +609,7 @@ if [ "$current_ip" != "$old_ip" ]
             fi
             ;;
     esac
-    
+
     #logging
     if [ $LOGGING -ge "2" ]
         then
@@ -638,6 +621,26 @@ if [ "$current_ip" != "$old_ip" ]
     fi
     #/logging
 fi
+
+# check if nameserver got ip!
+if [ $ping_check -eq 1 ]; then
+    ns_ip=`$ping -c 1 ${my_url} | $grep PING | $cut -d \( -f 2 | $cut -d \) -f 1`
+    if [ "$current_ip" != "$ns_ip" ]; then
+        #update necessarry
+        old_ip="0.0.0.0" 
+        
+        if [ $SILENT -eq 0 ]; then
+            $echo "ERROR: your dns service did not update your ip the first time"
+        fi
+        if [ $LOGGING -ge 1 ]; then
+            $echo "[`$date +%d/%b/%Y:%T`] | ERROR: your dns service did not update your ip the first time\n                         dns record is: $ns_ip, your ip is: $current_ip" >> $LOGFILE 
+        fi
+    fi
+fi
+#/ check if nameserver got ip!
+
+    
+
 
 if [ $LOGGING -ge "3" ]
     then
