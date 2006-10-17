@@ -1,5 +1,5 @@
 #!/bin/bash
-# bddc version 0.0.8
+# bddc version 0.0.9
 #####################################################################################
 # licensed under the                                                                #
 # The MIT License                                                                   #
@@ -211,13 +211,14 @@ noipcom_ip=
 #-----------/no-ip.com-----------------
 
 # the name of the client that is sent with updates and requests
-bddc_name="bashdyndnschecker (bddc v0.0.8)/bddc.sf.net"
+bddc_name="bashdyndnschecker (bddc v0.0.9)/bddc.sf.net"
 
 # Ping check
 # checks if the dns service edited your ip.
 # pings your hostname (my_url) to check for the ip
-# updates again if ip differs from current ip.
-ping_check=1
+# updates again if ip differs from current ip. 
+# enabled if 1.
+ping_check=0
 
 # the url that needs the dyndns (HAS NOW SENSE!!!)
 my_url=your.domain.com
@@ -626,15 +627,15 @@ fi
 if [ $ping_check -eq 1 ]; then
     ns_ip=`$ping -c 1 ${my_url} | $grep PING | $cut -d \( -f 2 | $cut -d \) -f 1`
     if [ "$current_ip" != "$ns_ip" ]; then
-        #update necessarry
-        old_ip="0.0.0.0" 
-        
-        if [ $SILENT -eq 0 ]; then
-            $echo "ERROR: your dns service did not update your ip the first time"
+		if [ "$old_ip" == "127.0.0.1" ]; then
+        	if [ $SILENT -eq 0 ]; then
+           	 $echo "ERROR: your dns service did not update your ip the first time"
+        	fi
+        	if [ $LOGGING -ge 1 ]; then
+           	 $echo "[`$date +%d/%b/%Y:%T`] | ERROR: your dns service did not update your ip the first time\n                         dns record is: $ns_ip, your ip is: $current_ip" >> $LOGFILE 
+        	fi
         fi
-        if [ $LOGGING -ge 1 ]; then
-            $echo "[`$date +%d/%b/%Y:%T`] | ERROR: your dns service did not update your ip the first time\n                         dns record is: $ns_ip, your ip is: $current_ip" >> $LOGFILE 
-        fi
+        $echo "127.0.0.1" > $ip_cache
     fi
 fi
 #/ check if nameserver got ip!
