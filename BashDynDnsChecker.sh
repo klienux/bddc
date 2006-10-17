@@ -635,6 +635,7 @@ if [ $ping_check -eq 1 ]; then
            	 $echo "[`$date +%d/%b/%Y:%T`] | ERROR: your dns service did not update your ip the first time\n                         dns record is: $ns_ip, your ip is: $current_ip" >> $LOGFILE 
         	fi
         fi
+        # this forces an update at next check and prompts the error message
         $echo "127.0.0.1" > $ip_cache
     fi
 fi
