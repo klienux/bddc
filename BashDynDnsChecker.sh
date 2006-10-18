@@ -113,6 +113,8 @@ inet_if=eth0
 
 #################################
 # ad 2: remote url to get ip from over http
+# (!) changing this needs you to change the 
+# parsing string further down in the code.
 check_url=http://whatismyip.com
 # seconds to try for remote host:
 remote_timeout=10
