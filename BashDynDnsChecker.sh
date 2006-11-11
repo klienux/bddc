@@ -1,5 +1,5 @@
 #!/bin/bash
-# bddc version 0.0.9
+# bddc version 0.0.9.1
 #####################################################################################
 # licensed under the                                                                #
 # The MIT License                                                                   #
@@ -134,10 +134,10 @@ router_tmp_file=/tmp/bddc_router_tmp_file
 dlink_user="ADMIN"
 dlink_passwd="PASSWD"
 dlink_ip=192.168.0.1
+dlink_wan_mode=PPTP|PPPoE|DHCP
 # this helps parsing (do not change)
 dlink_url=st_devic.html
 dlink_mode=WAN
-dlink_wan_mode=PPTP
 #------/Dlink-DI-624---------
 
 #-------Netgear-TA612V--------
@@ -213,7 +213,7 @@ noipcom_ip=
 #-----------/no-ip.com-----------------
 
 # the name of the client that is sent with updates and requests
-bddc_name="bashdyndnschecker (bddc v0.0.9)/bddc.sf.net"
+bddc_name="bashdyndnschecker (bddc v0.0.9.1)/bddc.sf.net"
 
 # Ping check
 # checks if the dns service edited your ip.
@@ -327,7 +327,7 @@ case "$CHECKMODE" in
                         $echo "[`$date +%d/%b/%Y:%T`] | ERROR: DLink DI-624 Internet interface is down!" >> $LOGFILE && exit 1
                     fi 
                 fi
-                current_ip=`grep -A 30 ${dlink_mode} ${router_tmp_file}| grep -A_mode} | egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | sed 's/<[^>]*>//g;/</N;'|s//;s/[^0-9]*$//'`
+                current_ip=`grep -A 30 ${dlink_mode} ${router_tmp_file}| grep -A 9 ${dlink_wan_mode} | egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | sed 's/<[^>]*>//g;/</N;'|sed 's/^[^0-9]*//;s/[^0-9]*$//'`
                 rm ${router_tmp_file}
                 ;;
             
@@ -634,7 +634,8 @@ if [ $ping_check -eq 1 ]; then
            	 $echo "ERROR: your dns service did not update your ip the first time"
         	fi
         	if [ $LOGGING -ge 1 ]; then
-           	 $echo "[`$date +%d/%b/%Y:%T`] | ERROR: your dns service did not update your ip the first time\n                         dns record is: $ns_ip, your ip is: $current_ip" >> $LOGFILE 
+           	 $echo -n "[`$date +%d/%b/%Y:%T`] | ERROR: your dns service did not update your ip the first time\n
+                         dns record: $ns_ip | your ip: $current_ip\n" >> $LOGFILE 
         	fi
         fi
         # this forces an update at next check and prompts the error message
