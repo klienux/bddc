@@ -1,5 +1,5 @@
 #!/bin/bash
-# bddc version 0.0.9.1
+# bddc version 0.0.9.2
 #####################################################################################
 # licensed under the                                                                #
 # The MIT License                                                                   #
@@ -134,7 +134,8 @@ router_tmp_file=/tmp/bddc_router_tmp_file
 dlink_user="ADMIN"
 dlink_passwd="PASSWD"
 dlink_ip=192.168.0.1
-dlink_wan_mode=PPTP|PPPoE|DHCP
+#choose either
+dlink_wan_mode=PPTP/PPPoE/DHCP
 # this helps parsing (do not change)
 dlink_url=st_devic.html
 dlink_mode=WAN
@@ -242,26 +243,41 @@ login_data_valid () {
     return 1;
 }
 
-if [ ! -e ${ip_cache} ] || [ ! -s ${ip_cache} ]; then
-    $echo "0.0.0.0" >> ${ip_cache}
-fi
 if [ $LOGGING -ge 1 ]; then
-    if [ ! -e ${LOGFILE} ] || [ ! -s ${LOGFILE} ]; then
-        $echo "BashDynDnsChecker Logfile:" >> ${LOGFILE}
-    fi
-    if [ ! -r ${LOGFILE} ] || [ ! -w ${LOGFILE} ]; then
+    if [ ! -r ${LOGFILE} ] || [ ! -w ${LOGFILE} ] || [ -d ${LOGFILE} ]; then
         $echo "ERROR: Script has no write and/or no read permission for logfile ${LOGFILE}!"
-        exit 2
     fi
-fi
-if [ ! -r ${ip_cache} ] || [ ! -w ${ip_cache} ]; then
-    $echo "ERROR: Script has no write and/or no read permission for ${ip_cache}!"
-    $echo "NOTICE: the script needs permission to write to this file too: ${router_tmp_file}"
-    if [ $LOGGING -ge 1 ]; then
-        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Script has no write and/or no read permission for ${ip_cache}!" >> $LOGFILE 
+    if [ ! -e ${LOGFILE} ] || [ ! -s ${LOGFILE} ]; then
+        $echo "BashDynDnsChecker Logfile:" >> ${LOGFILE} 2> /dev/null
     fi
     exit 2
 fi
+if [ ! -r ${ip_cache} ] || [ ! -w ${ip_cache} ] || [ -d ${ip_cache} ]; then
+    $echo "ERROR: Script has no write and/or no read permission for ${ip_cache}!"
+    $echo "NOTICE: the script needs permission to write to this file too: ${router_tmp_file}"
+    if [ $LOGGING -ge 1 ]; then
+        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Script has no write and/or no read permission for ${ip_cache}!" >> $LOGFILE
+    fi
+    exit 2
+fi
+if [ ! -e ${ip_cache} ] || [ ! -s ${ip_cache} ]; then
+    $echo "0.0.0.0" >> ${ip_cache}
+fi
+if [ ! -r ${router_tmp_file} ] || [ ! -w ${router_tmp_file} ] || [ -d ${router_tmp_file} ]; then
+    $echo "ERROR: Script has no write and/or no read permission for ${router_tmp_file}!"
+    if [ $LOGGING -ge 1 ]; then
+        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Script has no write and/or no read permission for ${router_tmp_file}!" >> $LOGFILE 
+    fi
+    exit 2
+fi
+if [ ! -r ${html_tmp_file} ] || [ ! -w ${html_tmp_file} ] || [ -d ${html_tmp_file} ]; then
+    $echo "ERROR: Script has no write and/or no read permission for ${html_tmp_file}!"
+    if [ $LOGGING -ge 1 ]; then
+        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Script has no write and/or no read permission for ${html_tmp_file}!" >> $LOGFILE 
+    fi
+    exit 2
+fi
+
 
 case "$CHECKMODE" in
 	# ifconfig mode
