@@ -193,7 +193,7 @@ afraid_url=http://freedns.afraid.org/dynamic/update.php.........................
 # ad 2: data you got at dyndns.org
 dyndnsorg_username="USER"
 dyndnsorg_passwd="PASSWD"
-dyndnsorg_hostnameS=URL.HOSTNAME-YOU.GOT
+dyndnsorg_hostnameS=1st.domain.com,2nd.domain.com
 #--do not edit-----
 dyndnsorg_wildcard=NOCHG
 dyndnsorg_mail=NOCHG
@@ -208,13 +208,13 @@ dyndnsorg_ip=
 # username is an email address
 noipcom_username="USERNAME@yourdomain.com"
 noipcom_passwd="PASSWD"
-noipcom_hostnameS=yoururl.you-got-at-no-ip.org
+noipcom_hostnameS=1st.domain.com,2nd.domain.com
 #for testing
 noipcom_ip=
 #-----------/no-ip.com-----------------
 
 # the name of the client that is sent with updates and requests
-bddc_name="bashdyndnschecker (bddc v0.0.9.1)/bddc.sf.net"
+bddc_name="bashdyndnschecker (bddc v0.0.9.2)/bddc.sf.net"
 
 # Ping check
 # checks if the dns service edited your ip.
