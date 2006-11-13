@@ -224,6 +224,9 @@ bddc_name="bashdyndnschecker (bddc v0.0.9.2)/bddc.sf.net"
 ping_check=0
 
 # the url that needs the dyndns (HAS NOW SENSE!!!)
+# is used to ping this url, to check for successful dns update.
+# only used when ping_check is enabled. (if you are using multiple domains, 
+# you must not list all. one is enough)
 my_url=your.domain.com
 
 ################################################################################
