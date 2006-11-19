@@ -1,5 +1,5 @@
 #!/bin/bash
-# bddc version 0.0.9.2
+# bddc version 0.0.9.3
 #####################################################################################
 # licensed under the                                                                #
 # The MIT License                                                                   #
@@ -125,6 +125,7 @@ remote_timeout=10
 # 2 -> Netgear-TA612V
 # 3 -> Netgear WGT-624
 # 4 -> Digitus DN 11001
+# 5 -> Philips Wireless PSTN (currently testing)
 ROUTER=1
 router_timeout=5
 router_tmp_file=/tmp/bddc_router_tmp_file
@@ -134,7 +135,7 @@ router_tmp_file=/tmp/bddc_router_tmp_file
 dlink_user="ADMIN"
 dlink_passwd="PASSWD"
 dlink_ip=192.168.0.1
-#choose either
+#choose one only
 dlink_wan_mode=PPTP/PPPoE/DHCP
 # this helps parsing (do not change)
 dlink_url=st_devic.html
@@ -169,6 +170,16 @@ digitusDN_ip=192.168.0.1
 # this helps parsing (do not change)
 digitusDN_url=status.htm
 #-------/Digitus DN 11001------
+
+#-------Philips Router-------
+# ad 5: Philips Wireless PSTN conf
+philipsPSTN_user="ADMIN"
+philipsPSTN_passwd="PASSWD"
+philipsPSTN_ip=192.168.0.1
+# this helps parsing (do not change)
+philipsPSTN_url=status_main.stm
+philipsPSTN_logoutpath=cgi-bin/logout.exe
+#-------/Philips------
 ######### / R O U T E R #########
 
 
@@ -214,7 +225,7 @@ noipcom_ip=
 #-----------/no-ip.com-----------------
 
 # the name of the client that is sent with updates and requests
-bddc_name="bashdyndnschecker (bddc v0.0.9.2)/bddc.sf.net"
+bddc_name="bashdyndnschecker (bddc v0.0.9.3)/bddc.sf.net"
 
 # Ping check
 # checks if the dns service edited your ip.
@@ -454,6 +465,38 @@ case "$CHECKMODE" in
                         $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Digitus DN 11001 Internet interface is down!" >> $LOGFILE && exit 1
                     fi 
                 fi
+                rm ${router_tmp_file}
+                ;;
+             # Philips Wireless PSTN
+            5)
+             	login_data_valid ${philipsPSTN_user} ${philipsPSTN_passwd}
+             	loginIsValid=$?
+                if [ $loginIsValid == 0 ]; then
+                    exit 2
+                fi
+                string=`$curl --connect-timeout "${router_timeout}" -s --anyauth -u ${philipsPSTN_user}:"${philipsPSTN_passwd}" -o "${router_tmp_file}" http://${philipsPSTN_ip}/${philipsPSTN_url}`
+               # checking for timeout --> error 28 in curl is timeout...
+                if [ "28" -eq `echo $?` ]; then
+                    if [ $SILENT -eq 0 ]; then
+                        $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${philipsPSTN_ip}/${philipsPSTN_url})"
+                    fi
+                    if [ $LOGGING -ge 1 ]; then
+                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${router_timeout} second(s) tried on host: http://${philipsPSTN_ip}/${philipsPSTN_url})" >> $LOGFILE 
+                    fi
+                    exit 28;
+		fi
+#to edit!!!
+                current_ip=`$grep "WAN IP" ${router_tmp_file}| $sed --posix 's/<br>/%/g;s/.*WAN IP: /%/;s/%\&nbsp;//;s/%.*//'`
+                if [ "$current_ip" == "0.0.0.0" ]; then
+                    if [ $SILENT -eq 0 ]; then
+                        $echo "ERROR: Philips Wireless PSTN internet interface is down!"
+                    fi
+                    if [ $LOGGING -ge 1 ]; then
+                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Philips Wireless PSTN Internet interface is down!" >> $LOGFILE && exit 1
+                    fi 
+                fi
+                # logout from router
+                $curl http://${philipsPSTN_ip}/${philipsPSTN_logoutpath} 2> /dev/null
                 rm ${router_tmp_file}
                 ;;
         esac
