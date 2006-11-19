@@ -98,14 +98,14 @@ ip_cache=/tmp/bddc-ip-add.cache
 html_tmp_file=/tmp/bddc_html_tmp_file
 
 # turn silent mode on (no echo while running, [1 is silent])
-SILENT=0
+SILENT=1
 
 #################################
 # mode of ip checking
 # 1 -> output of ifconfig
 # 2 -> remote website
 # 3 -> router info over http
-CHECKMODE=1
+CHECKMODE=2
 
 #################################
 # ad 1: your internet interface
