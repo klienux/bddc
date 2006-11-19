@@ -98,14 +98,14 @@ ip_cache=/tmp/bddc-ip-add.cache
 html_tmp_file=/tmp/bddc_html_tmp_file
 
 # turn silent mode on (no echo while running, [1 is silent])
-SILENT=1
+SILENT=0
 
 #################################
 # mode of ip checking
 # 1 -> output of ifconfig
 # 2 -> remote website
 # 3 -> router info over http
-CHECKMODE=2
+CHECKMODE=1
 
 #################################
 # ad 1: your internet interface
@@ -234,7 +234,7 @@ bddc_name="bashdyndnschecker (bddc v0.0.9.3)/bddc.sf.net"
 # enabled if 1.
 ping_check=0
 
-# the url that needs the dyndns (HAS NOW SENSE!!!)
+# the url that needs the dyndns
 # is used to ping this url, to check for successful dns update.
 # only used when ping_check is enabled. (if you are using multiple domains, 
 # you must not list all. one is enough)
@@ -258,13 +258,17 @@ login_data_valid () {
 }
 
 if [ $LOGGING -ge 1 ]; then
-    if [ ! -r ${LOGFILE} ] || [ ! -w ${LOGFILE} ] || [ -d ${LOGFILE} ]; then
-        $echo "ERROR: Script has no write and/or no read permission for logfile ${LOGFILE}!"
-    fi
     if [ ! -e ${LOGFILE} ] || [ ! -s ${LOGFILE} ]; then
         $echo "BashDynDnsChecker Logfile:" >> ${LOGFILE} 2> /dev/null
     fi
-    exit 2
+    if [ ! -r ${LOGFILE} ] || [ ! -w ${LOGFILE} ] || [ -d ${LOGFILE} ]; then
+        $echo "ERROR: Script has no write and/or no read permission for logfile ${LOGFILE}!"
+        exit 2
+    fi
+fi
+
+if [ ! -e ${ip_cache} ] || [ ! -s ${ip_cache} ]; then
+    $echo "0.0.0.0" > ${ip_cache} 2> /dev/null
 fi
 if [ ! -r ${ip_cache} ] || [ ! -w ${ip_cache} ] || [ -d ${ip_cache} ]; then
     $echo "ERROR: Script has no write and/or no read permission for ${ip_cache}!"
@@ -274,24 +278,26 @@ if [ ! -r ${ip_cache} ] || [ ! -w ${ip_cache} ] || [ -d ${ip_cache} ]; then
     fi
     exit 2
 fi
-if [ ! -e ${ip_cache} ] || [ ! -s ${ip_cache} ]; then
-    $echo "0.0.0.0" >> ${ip_cache}
-fi
-if [ ! -r ${router_tmp_file} ] || [ ! -w ${router_tmp_file} ] || [ -d ${router_tmp_file} ]; then
-    $echo "ERROR: Script has no write and/or no read permission for ${router_tmp_file}!"
-    if [ $LOGGING -ge 1 ]; then
-        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Script has no write and/or no read permission for ${router_tmp_file}!" >> $LOGFILE 
+if [ $CHECKMODE -eq 2 ]; then
+    echo "" > ${html_tmp_file}
+    if [ ! -r ${html_tmp_file} ] || [ ! -w ${html_tmp_file} ] || [ -d ${html_tmp_file} ]; then
+        $echo "ERROR: Script has no write and/or no read permission for ${html_tmp_file}!"
+        if [ $LOGGING -ge 1 ]; then
+            $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Script has no write and/or no read permission for ${html_tmp_file}!" >> $LOGFILE 
+        fi
+        exit 2
     fi
-    exit 2
 fi
-if [ ! -r ${html_tmp_file} ] || [ ! -w ${html_tmp_file} ] || [ -d ${html_tmp_file} ]; then
-    $echo "ERROR: Script has no write and/or no read permission for ${html_tmp_file}!"
-    if [ $LOGGING -ge 1 ]; then
-        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Script has no write and/or no read permission for ${html_tmp_file}!" >> $LOGFILE 
-    fi
-    exit 2
+if [ $CHECKMODE -eq 3 ]; then
+    echo "" > ${router_tmp_file}
+    if [ ! -r ${router_tmp_file} ] || [ ! -w ${router_tmp_file} ] || [ -d ${router_tmp_file} ]; then
+        $echo "ERROR: Script has no write and/or no read permission for ${router_tmp_file}!"
+        if [ $LOGGING -ge 1 ]; then
+            $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Script has no write and/or no read permission for ${router_tmp_file}!" >> $LOGFILE 
+        fi
+        exit 2
 fi
-
+fi
 
 case "$CHECKMODE" in
 	# ifconfig mode
@@ -313,18 +319,18 @@ case "$CHECKMODE" in
     	# edit line of current_ip to a form that only the ip remains when you get the html file
 		# in this format: '123.123.132.132'
         string=`$curl --connect-timeout "${remote_timeout}" -s -A "${bddc_name}" $check_url -o ${html_tmp_file}`
-		if [ "28" -eq `echo $?` ]; then
-			if [ $SILENT -eq 0 ]; then
-                        $echo "ERROR: timeout (${remote_timeout} second(s) tried on host: ${check_url})"
+        if [ "28" -eq `echo $?` ]; then
+            if [ $SILENT -eq 0 ]; then
+                $echo "ERROR: timeout (${remote_timeout} second(s) tried on host: ${check_url})"
             fi
             if [ $LOGGING -ge 1 ]; then
-                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${remote_timeout} second(s) tried on host: ${check_url})" >> $LOGFILE
+                $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${remote_timeout} second(s) tried on host: ${check_url})" >> $LOGFILE
             fi
- 			exit 28;
-		fi
+            exit 28;
+        fi
         current_ip=`$cat $html_tmp_file | $egrep -e ^[\ \t]*\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}| $sed 's/ //g'`
-		rm $html_tmp_file
-                ;;
+        rm $html_tmp_file
+        ;;
     ######################    
     # router per http mode
     3)   
@@ -503,7 +509,6 @@ case "$CHECKMODE" in
         ;;
 esac
 
-
 #---------IP-syndication-part--------------------
 old_ip=`$cat $ip_cache`
 if [ "$current_ip" != "$old_ip" ]
@@ -601,7 +606,7 @@ if [ "$current_ip" != "$old_ip" ]
 	    if [ $SILENT -eq "0" ]; then
                 $echo "dyndns.org: $dyndnsorg_feedback"
             fi
-   	    ;;
+            ;;
         3)
 	    noipcom_ip=$current_ip;
             myurl=`$echo "http://dynupdate.no-ip.com/nic/update?hostname=${noipcom_hostnameS}&myip=${noipcom_ip}"`
@@ -666,7 +671,7 @@ if [ "$current_ip" != "$old_ip" ]
 	    if [ $SILENT -eq "0" ]; then
                 $echo "no-ip.com: $noipcom_feedback"
             fi
-   	    ;;
+            ;;
         T)
             # testing option for scripting, that you dont get banned from a service
             if [ $SILENT -eq "0" ]; then
@@ -674,7 +679,7 @@ if [ "$current_ip" != "$old_ip" ]
             fi
             ;;
     esac
-
+    
     #logging
     if [ $LOGGING -ge "2" ]
         then
