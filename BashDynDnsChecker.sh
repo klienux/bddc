@@ -1,74 +1,76 @@
 #!/bin/bash
 # bddc version 0.0.9.3
-#####################################################################################
-# licensed under the                                                                #
-# The MIT License                                                                   #
-#                                                                                   #
-# Copyright (c) <2006> <florian[at]klien[dot]cx>                                    #
-#                                                                                   #
-# Permission is hereby granted, free of charge, to any person obtaining a copy of   #
-# this software and associated documentation files (the "Software"), to deal in the #
-# Software without restriction, including without limitation the rights to use,     #
-# copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the   #
-# Software, and to permit persons to whom the Software is furnished to do so,       #
-# subject to the following conditions:                                              #
-#                                                                                   #
-#                                                                                   #
-# The above copyright notice and this permission notice shall be included in all    #
-# copies or substantial portions of the Software.                                   #
-#                                                                                   #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR        #
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS  #
-# FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR    #
-# COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN #
-# AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION   #
-# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                   #
-#                                                                                   #
-# ################################################################################# #
-#                                                                                   #
-# BashDynDnsChecker (bddc)                                                          #
-#                                                                                   #
-# This is a dyndns check and synchronizing script                                   #
-# the executables it needs are:                                                     #
-# grep, egrep, curl, echo, sed, ifconfig, date, tail, cut, cat, ping and rm         #
-# which should be available in every linux system.                                  #
-#                                                                                   #
-# copyright 2006 by florian klien                                                   #
-# florian[at]klien[dot]cx                                                           #
-#                                                                                   #
-# supports ip reception from ifconfig, an external url (by http)                    #
-# and parsing from a router.                                                        #
-#                                                                                   #
-# supports dyndns synchronization with afraid.org, dyndns.org and no-ip.com         #
-#                                                                                   #
-# it needs to be called in crontab as a cronjob, or any other similar               #
-# perpetual program.                                                                #
-#                                                                                   #
-#                                                                                   #
-#                                                                                   #
-# if you want your router to be supported,                                          #
-# add the following information to the feature request site on sourceforge.net:     #
-#                                                                                   #
-# *) the url under which the external ip can be read from your router               #
-# *) a copy of the html source code from this site (each online and offline)        #
-# *) the complete name of your router                                               #
-# *) the url to call for logout of the router                                       #
-# *) your name and email address for contact and testing purpose before             #
-#    a release is done.                                                             #
-# OR, what we prefer                                                                #
-# *) write your own parsing string, as we do in the script and put it on the        #
-#    feature request forum on sourceforge.net.                                      #
-# *) plus full name of the router                                                   #
-#                                                                                   #
-# exit codes:                                                                       #
-# 0  -> everything went fine                                                        #
-# 1  -> some error occured during runtime                                           #
-# 2  -> some config error was caught                                                #
-# 28 -> timeout at connecting to some host                                          #
-#                                                                                   #
-#####################################################################################
-# change to your needs                                                              #
-#####################################################################################
+################################################################################
+# licensed under the                                                           #
+# The MIT License                                                              #
+#                                                                              #
+# Copyright (c) <2006> <florian[at]klien[dot]cx>                               #
+#                                                                              #
+# Permission is hereby granted, free of charge, to any person obtaining a copy #
+# of this software and associated documentation files (the "Software"), to     #
+# deal in the Software without restriction, including without limitation the   #
+# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or  #
+# sell copies of the Software, and to permit persons to whom the Software is   #
+# furnished to do so,                                                          #
+# subject to the following conditions:                                         #
+#                                                                              #
+#                                                                              #
+# The above copyright notice and this permission notice shall be included in   #
+# all copies or substantial portions of the Software.                          #
+#                                                                              #
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR   #
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,     #
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE  #
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER       #
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING      #
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS #
+# IN THE SOFTWARE.                                                             #
+#                                                                              #
+################################################################################
+#                                                                              #
+# BashDynDnsChecker (bddc)                                                     #
+#                                                                              #
+# This is a dyndns check and synchronizing script                              #
+# the executables it needs are:                                                #
+# grep, egrep, curl, echo, sed, ifconfig, date, tail, cut, cat, ping and rm    #
+# which should be available in every linux system.                             #
+#                                                                              #
+# copyright 2006 by florian klien                                              #
+# florian[at]klien[dot]cx                                                      #
+#                                                                              #
+# supports ip reception from ifconfig, an external url (by http)               #
+# and parsing from a router.                                                   #
+#                                                                              #
+# supports dyndns synchronization with afraid.org, dyndns.org and no-ip.com    #
+#                                                                              #
+# it needs to be called in crontab as a cronjob, or any other similar          #
+# perpetual program.                                                           #
+#                                                                              #
+#                                                                              #
+#                                                                              #
+# if you want your router to be supported,                                     #
+# add the following information to the feature request site on sourceforge.net:#
+#                                                                              #
+# *) the url under which the external ip can be read from your router          #
+# *) a copy of the html source code from this site (each online and offline)   #
+# *) the complete name of your router                                          #
+# *) the url to call for logout of the router                                  #
+# *) your name and email address for contact and testing purpose before        #
+#    a release is done.                                                        #
+# OR, what we prefer                                                           #
+# *) write your own parsing string, as we do in the script and put it on the   #
+#    feature request forum on sourceforge.net.                                 #
+# *) plus full name of the router                                              #
+#                                                                              #
+# exit codes:                                                                  #
+# 0  -> everything went fine                                                   #
+# 1  -> some error occured during runtime                                      #
+# 2  -> some config error was caught                                           #
+# 28 -> timeout at connecting to some host                                     #
+#                                                                              #
+################################################################################
+# change to your needs                                                         #
+################################################################################
 
 # executable paths
 sed=sed
