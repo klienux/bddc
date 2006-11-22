@@ -496,7 +496,7 @@ case "$CHECKMODE" in
                     fi
                     exit 28;
 		fi
-                current_ip=`$grep "var wan_ip" ${router_tmp_file}| $sed 's/var wan_ip=\"/%/g;s/\";/%/g;s/%//g;'`
+                current_ip=`grep "var wan_ip" "${router_tmp_file}" | cut -d \" -f 2`
                 if [ "$current_ip" == "0.0.0.0" ]; then
                     if [ $SILENT -eq 0 ]; then
                         $echo "ERROR: Philips Wireless PSTN internet interface is down!"
