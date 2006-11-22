@@ -84,6 +84,7 @@ tail=tail
 echo=echo
 curl=curl
 ping=ping
+wget=wget
 
 ######################
 # change logging level
@@ -173,13 +174,13 @@ digitusDN_ip=192.168.0.1
 digitusDN_url=status.htm
 #-------/Digitus DN 11001------
 
-#-------Philips Router-------
+#-------Philips Router------- Currently testing...
 # ad 5: Philips Wireless PSTN conf
-philipsPSTN_user="ADMIN"
 philipsPSTN_passwd="PASSWD"
 philipsPSTN_ip=192.168.0.1
 # this helps parsing (do not change)
 philipsPSTN_url=status_main.stm
+philipsPSTN_loginpath=cgi-bin/login.exe
 philipsPSTN_logoutpath=cgi-bin/logout.exe
 #-------/Philips------
 ######### / R O U T E R #########
@@ -482,7 +483,9 @@ case "$CHECKMODE" in
                 if [ $loginIsValid == 0 ]; then
                     exit 2
                 fi
-                string=`$curl --connect-timeout "${router_timeout}" -s --anyauth -u ${philipsPSTN_user}:"${philipsPSTN_passwd}" -o "${router_tmp_file}" http://${philipsPSTN_ip}/${philipsPSTN_url}`
+                # login to router
+                $wget --timeout=${router_timeout} --post-data 'pws=${philipsPSTN_passwd}' http://${philipsPSTN_ip}/${philipsPSTN_loginpath}
+                string=`$curl --connect-timeout "${router_timeout}" -s -o "${router_tmp_file}" http://${philipsPSTN_ip}/${philipsPSTN_url}`
                # checking for timeout --> error 28 in curl is timeout...
                 if [ "28" -eq `echo $?` ]; then
                     if [ $SILENT -eq 0 ]; then
@@ -493,8 +496,7 @@ case "$CHECKMODE" in
                     fi
                     exit 28;
 		fi
-#to edit!!!
-                current_ip=`$grep "WAN IP" ${router_tmp_file}| $sed --posix 's/<br>/%/g;s/.*WAN IP: /%/;s/%\&nbsp;//;s/%.*//'`
+                current_ip=`$grep "var wan_ip" status_main.stm.htm| $sed 's/var wan_ip=\"/%/g;s/\";/%/g;s/%//g;'`
                 if [ "$current_ip" == "0.0.0.0" ]; then
                     if [ $SILENT -eq 0 ]; then
                         $echo "ERROR: Philips Wireless PSTN internet interface is down!"
