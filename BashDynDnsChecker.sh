@@ -32,7 +32,8 @@
 #                                                                              #
 # This is a dyndns check and synchronizing script                              #
 # the executables it needs are:                                                #
-# grep, egrep, curl, echo, sed, ifconfig, date, tail, cut, cat, ping and rm    #
+# grep, egrep, curl, echo, sed, ifconfig, date, tail, cut, cat, ping, rm and   #
+# wget.                                                                        #
 # which should be available in every linux system.                             #
 #                                                                              #
 # copyright 2006 by florian klien                                              #
