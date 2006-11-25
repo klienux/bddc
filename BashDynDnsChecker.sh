@@ -705,7 +705,7 @@ if [ $ping_check -eq 1 ]; then
            	 $echo "ERROR: your dns service did not update your ip the first time"
         	fi
         	if [ $LOGGING -ge 1 ]; then
-           	 $echo -n "[`$date +%d/%b/%Y:%T`] | ERROR: your dns service did not update your ip the first time\n
+           	 $echo -e "[`$date +%d/%b/%Y:%T`] | ERROR: your dns service did not update your ip the first time\n
                          dns record: $ns_ip | your ip: $current_ip\n" >> $LOGFILE 
         	fi
         fi
