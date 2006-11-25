@@ -702,7 +702,7 @@ if [ $ping_check -eq 1 ]; then
     if [ "$current_ip" != "$ns_ip" ]; then
 		if [ "$old_ip" == "127.0.0.1" ]; then
         	if [ $SILENT -eq 0 ]; then
-           	 $echo "ERROR: your dns service did not update your ip the first time"
+           	 $echo -e "ERROR: your dns service did not update your ip the first time\nMaybe you forgot to set the IPSYNMODE option to a correct value (T is just for testing)"
         	fi
         	if [ $LOGGING -ge 1 ]; then
            	 $echo -e "[`$date +%d/%b/%Y:%T`] | ERROR: your dns service did not update your ip the first time\n
