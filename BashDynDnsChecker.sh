@@ -1,5 +1,5 @@
 #!/bin/bash
-# bddc version 0.0.9.3
+# bddc version 0.0.9.4
 ################################################################################
 # licensed under the                                                           #
 # The MIT License                                                              #
@@ -44,7 +44,7 @@
 #                                                                              #
 # supports dyndns synchronization with afraid.org, dyndns.org and no-ip.com    #
 #                                                                              #
-# it needs to be called in crontab as a cronjob, or any other similar          #
+# (!) it needs to be called in crontab as a cronjob, or any other similar      #
 # perpetual program.                                                           #
 #                                                                              #
 #                                                                              #
@@ -59,9 +59,13 @@
 # *) your name and email address for contact and testing purpose before        #
 #    a release is done.                                                        #
 # OR, what we prefer                                                           #
-# *) write your own parsing string, as we do in the script and put it on the   #
-#    feature request forum on sourceforge.net.                                 #
+# *) write your own parsing string and                                         #
+# *) the value of the ip when offline (maybe other possible errors)            #
+#  as we do in the script and put it on the feature request forum on           #
+#  sourceforge.net.                                                            #
 # *) plus full name of the router                                              #
+# *) your name and email address for contact and testing purpose before        #
+#    a release is done.                                                        #
 #                                                                              #
 # exit codes:                                                                  #
 # 0  -> everything went fine                                                   #
@@ -129,7 +133,8 @@ remote_timeout=10
 # 2 -> Netgear-TA612V
 # 3 -> Netgear WGT-624
 # 4 -> Digitus DN 11001
-# 5 -> Philips Wireless PSTN (currently testing)
+# 5 -> Philips Wireless PSTN (currently testing...)
+# 6 -> Verizon Westell 327W (currently testing...)
 ROUTER=1
 router_timeout=5
 router_tmp_file=/tmp/bddc_router_tmp_file
@@ -184,9 +189,15 @@ philipsPSTN_url=status_main.stm
 philipsPSTN_loginpath=cgi-bin/login.exe
 philipsPSTN_logoutpath=cgi-bin/logout.exe
 #-------/Philips------
+
+#-------Westell 327W ------- Currently testing...
+# ad 6: Westell 327W conf
+west327_user="ADMIN"
+west327_passwd="PASSWD"
+west327_ip=192.168.0.1
+west327_url=advstat.htm
+#------/Westell 327W--------
 ######### / R O U T E R #########
-
-
 
 #####################
 # mode of syndication
@@ -229,7 +240,7 @@ noipcom_ip=
 #-----------/no-ip.com-----------------
 
 # the name of the client that is sent with updates and requests
-bddc_name="bashdyndnschecker (bddc v0.0.9.3)/bddc.sf.net"
+bddc_name="bashdyndnschecker (bddc v0.0.9.4)/bddc.sf.net"
 
 # Ping check
 # checks if the dns service edited your ip.
@@ -508,6 +519,36 @@ case "$CHECKMODE" in
                 fi
                 # logout from router
                 $curl http://${philipsPSTN_ip}/${philipsPSTN_logoutpath} 2> /dev/null
+                rm ${router_tmp_file}
+                ;;
+            # Westell 327W
+            6)
+             	login_data_valid ${west327_user} ${west327_passwd}
+             	loginIsValid=$?
+                if [ $loginIsValid == 0 ]; then
+                    exit 2
+                fi
+                string=`$curl --connect-timeout "${router_timeout}" -s --anyauth -u ${west327_user}:"${west327_passwd}" -o "${router_tmp_file}" http://${west327_ip}/${west327_url}`
+               # checking for timeout --> error 28 in curl is timeout...
+                if [ "28" -eq `echo $?` ]; then
+                    if [ $SILENT -eq 0 ]; then
+                        $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${west327_ip}/${west327_url})"
+                    fi
+                    if [ $LOGGING -ge 1 ]; then
+                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${router_timeout} second(s) tried on host: http://${west327_ip}/${west327_url})" >> $LOGFILE 
+                    fi
+                    exit 28;
+		fi
+#                current_ip=`grep -A 1 Secondary ${router_tmp_file} | egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | gawk -F";" ' {print $2}' | sed 's/<br>&nbsp//'`
+                current_ip=`$grep -A 1 Secondary ${router_tmp_file} | $egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $cut -d ';' -f 2 | $sed 's/<br>&nbsp//'`
+                if [ "$current_ip" == "0.0.0.0" ]; then
+                    if [ $SILENT -eq 0 ]; then
+                        $echo "ERROR: Westell 327W internet interface is down!"
+                    fi
+                    if [ $LOGGING -ge 1 ]; then
+                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Westell 327W Internet interface is down!" >> $LOGFILE && exit 1
+                    fi 
+                fi
                 rm ${router_tmp_file}
                 ;;
         esac
