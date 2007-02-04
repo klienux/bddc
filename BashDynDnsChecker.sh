@@ -182,6 +182,7 @@ digitusDN_url=status.htm
 
 #-------Philips Router------- Currently testing...
 # ad 5: Philips Wireless PSTN conf
+philipsPSTN_user="ADMIN"
 philipsPSTN_passwd="PASSWD"
 philipsPSTN_ip=192.168.0.1
 # this helps parsing (do not change)
@@ -496,7 +497,9 @@ case "$CHECKMODE" in
                     exit 2
                 fi
                 # login to router
-                $wget --timeout=${router_timeout} --post-data 'pws=${philipsPSTN_passwd}' http://${philipsPSTN_ip}/${philipsPSTN_loginpath}
+#                $wget --timeout=${router_timeout} --post-data 'pws=${philipsPSTN_passwd}' http://${philipsPSTN_ip}/${philipsPSTN_loginpath}
+#                $curl --max-time ${router_timeout} -d name=${philipsPSTN_user} -d pws=${philipsPSTN_passwd} http://${philipsPSTN_ip}/${philipsPSTN_loginpath}
+                $curl --max-time ${router_timeout} -d pws=${philipsPSTN_passwd} http://${philipsPSTN_ip}/${philipsPSTN_loginpath}
                 string=`$curl --connect-timeout "${router_timeout}" -s -o "${router_tmp_file}" http://${philipsPSTN_ip}/${philipsPSTN_url}`
                # checking for timeout --> error 28 in curl is timeout...
                 if [ "28" -eq `echo $?` ]; then
