@@ -1,10 +1,10 @@
 #!/bin/bash
-# bddc version 0.0.9.4
+bddc_version="0.1"
 ################################################################################
 # licensed under the                                                           #
 # The MIT License                                                              #
 #                                                                              #
-# Copyright (c) <2006> <florian[at]klien[dot]cx>                               #
+# Copyright (c) <2006 - 2007> <florian[at]klien[dot]cx>                        #
 #                                                                              #
 # Permission is hereby granted, free of charge, to any person obtaining a copy #
 # of this software and associated documentation files (the "Software"), to     #
@@ -32,11 +32,11 @@
 #                                                                              #
 # This is a dyndns check and synchronizing script                              #
 # the executables it needs are:                                                #
-# grep, egrep, curl, echo, sed, ifconfig, date, tail, cut, cat, ping, rm and   #
-# wget.                                                                        #
-# which should be available in every linux system.                             #
+# grep, egrep, expr, curl, echo, sed, ifconfig, date, tail, uniq, cut, cat,    #
+# ping, rm and wget or curl.                                                   #
+# which should be available in every *nix system.                              #
 #                                                                              #
-# copyright 2006 by florian klien                                              #
+# copyright 2006 - 2007 by florian klien                                       #
 # florian[at]klien[dot]cx                                                      #
 #                                                                              #
 # supports ip reception from ifconfig, an external url (by http)               #
@@ -47,7 +47,8 @@
 # (!) it needs to be called in crontab as a cronjob, or any other similar      #
 # perpetual program.                                                           #
 #                                                                              #
-#                                                                              #
+# (!) if you use bddc on a wrt environment, change the very first line from    #
+# '#/bin/bash' to '#/bin/sh', without the quotes.                              #
 #                                                                              #
 # if you want your router to be supported,                                     #
 # add the following information to the feature request site on sourceforge.net:#
@@ -78,18 +79,21 @@
 ################################################################################
 
 # executable paths
-sed=sed
-grep=grep
-egrep=egrep
 cat=cat
-cut=cut
-ifconfig=ifconfig
-date=date
-tail=tail
-echo=echo
 curl=curl
+cut=cut
+date=date
+echo=echo
+egrep=egrep
+expr=expr
+grep=grep
+ifconfig=ifconfig
 ping=ping
+sed=sed
+tail=tail
+uniq=uniq
 wget=wget
+
 
 ######################
 # change logging level
@@ -106,14 +110,14 @@ ip_cache=/tmp/bddc-ip-add.cache
 html_tmp_file=/tmp/bddc_html_tmp_file
 
 # turn silent mode on (no echo while running, [1 is silent])
-SILENT=1
+SILENT=0
 
 #################################
 # mode of ip checking
 # 1 -> output of ifconfig
 # 2 -> remote website
 # 3 -> router info over http
-CHECKMODE=2
+CHECKMODE=3
 
 #################################
 # ad 1: your internet interface
@@ -141,6 +145,8 @@ router_tmp_file=/tmp/bddc_router_tmp_file
 
 #-------DLink-DI-624---------
 # ad 1: DLink DI-624 conf
+#dlink_user="ADMIN"
+#dlink_passwd="PASSWD"
 dlink_user="ADMIN"
 dlink_passwd="PASSWD"
 dlink_ip=192.168.0.1
@@ -240,8 +246,8 @@ noipcom_hostnameS=1st.domain.com,2nd.domain.com
 noipcom_ip=
 #-----------/no-ip.com-----------------
 
-# the name of the client that is sent with updates and requests
-bddc_name="bashdyndnschecker (bddc v0.0.9.4)/bddc.sf.net"
+# the name of the client that is sent with updates and requests (do not change)
+bddc_name="bashdyndnschecker (bddc v${bddc_version})/bddc.sf.net"
 
 # Ping check
 # checks if the dns service edited your ip.
@@ -256,22 +262,231 @@ ping_check=0
 # you must not list all. one is enough)
 my_url=your.domain.com
 
+# list of preferred url fetchers
+# it is safe to leave this at default setting. this simply specifies order in
+# which they are checked. must not be empty.
+#preferred_fetchers="$curl $wget"
+preferred_fetchers="$wget $curl"
+
 ################################################################################
 # End of editspace, just go further if you know what you are doing             #
 ################################################################################
 
+
+#######################################
+#### Functions 
+ 
+# choose_fetcher: finds available url fetchers and sets variable "fetcher" to point 
+# to correct wrapper function;
+choose_fetcher() {
+    #  Go through preferred fetchers list and try to find which program is available
+    [ -z "$preferred_fetchers" ] && { msg_error "Fetchers list empty, check settings"; exit 2; }
+    local urlfetcher
+    for urlfetcher in $preferred_fetchers; do
+          #  First check if it even exists
+        $urlfetcher --help >/dev/null 2>&1
+        [ $? -eq 127 ] && continue
+
+              #  Get the id string
+        urlfetcher_id=$($urlfetcher --version 2>&1 |head -n1)
+        if expr "$urlfetcher_id" : ".*unrecognized option.*" >/dev/null; then urlfetcher_id=$($urlfetcher --help 2>&1 |head -n1); fi
+        
+              #  See what we have
+        case "$urlfetcher_id" in
+            BusyBox*)    fetcher="_fetcher_bbwget" ;;
+            curl*)       fetcher="$curl" ;;
+            "GNU Wget"*) fetcher="_fetcher_wget" ;;
+        esac
+        
+       #  Verify that we have it/it's implemented, if not reset $fetcher so we can try another one
+        $fetcher --help >/dev/null 2>&1
+        [ $? -eq 127 ] && fetcher=
+    done        #for urlfetcher in $preferred_fetchers
+    [ -z "$fetcher" ] && { msg_error "Could not find any suitable fetchers, function can be unimplemented"; exit 1; }
+    return 0
+}
+
 login_data_valid () {
     if [ "$1" == "ADMIN" ] || [ "$2" == "PASSWD" ]; then
-        if [ $SILENT -eq 0 ]; then
-            $echo "ERROR: check the login settings for your router"
-        fi
-        if [ $LOGGING -ge 1 ]; then
-            $echo "[`$date +%d/%b/%Y:%T`] | ERROR: check the login settings for your router" >> $LOGFILE 
-        fi
+        msg_error "ERROR: check the login settings for your router"
         return 0;
-        fi
+    fi
     return 1;
 }
+
+# msg_error: print and/or log message of level error (1) according to settings; pass msg as arg;
+msg_error() {
+    [ $SILENT -eq 0 ] && _msg_console "$@"
+    [ $LOGGING -ge 1 ] && _msg_log "ERROR: $@"
+}
+
+msg_info() {
+    [ $SILENT -eq 0 ] && _msg_console "$@"
+    [ $LOGGING -ge 2 ] && _msg_log "INFO: $@"
+}
+
+msg_verbose() {
+    [ $SILENT -eq 0 ] && _msg_console "$@"
+    [ $LOGGING -ge 3 ] && _msg_log "VERBOSE: $@"
+}
+
+# _fetcher_bbwget: download specified target with busybox's wget; expects options 
+# for curl and translates them to wget if possible;
+_fetcher_bbwget() {
+    #  Catch parameters and use whichever you can
+    local optstr=
+    local proto=
+    local host=
+    local address=
+    local have_out=0
+    for a in $(seq 1 $#); do
+        case $1 in
+            -d)
+              #  data as POST; unsupported, better scream cause there's gonna be problems
+                msg_error "Fetcher cannot proceed, command not supported, aborting ..."
+                exit 1
+                ;;
+            --help)
+              #  print help
+                optstr="${optstr:+$optstr }--help"
+                shift; continue
+                ;;
+            -o)
+              #  outfile
+                have_out=1
+                optstr="${optstr:+$optstr }-O \"$2\""
+                shift 2; continue
+                ;;
+            -s)
+              #  silent
+                optstr="${optstr:+$optstr }-q"
+                shift; continue
+              ;;
+            -u)
+              #  user/pass; lets try to pass it in the URL
+                local authstr=$2
+                shift 2; continue
+                ;;
+            http*|ftp*)
+              #  remote address
+                proto="${1%%:*}"
+                host="${1#*://}"
+                shift; continue
+                ;;
+            '')
+              #  ignore
+                continue
+                ;;
+            *)
+              #  catchall for all possibly unsupported options
+                msg_verbose "Fetcher got an unrecognized argument, ignoring ($1)"
+                shift; continue
+                ;;
+        esac
+    done
+    #  Curl by default dumps to stdout, so if -o wasn't specified assume that.
+    [ "$have_out" -eq "0" ] && optstr="${optstr:+$optstr }-O -"
+    
+    #  Assemble the address
+    address="${proto}://${authstr:+$authstr@}${host}"
+    
+    #  Ready to roll
+    # eval echo wget "$optstr" "\"$address\"" >&2
+    eval wget "$optstr" "\"$address\""
+    return $?
+}
+
+# this is for normal wget
+_fetcher_wget() {
+    #  Catch parameters and use whichever you can
+    local optstr=
+    local proto=
+    local host=
+    local address=
+    local have_out=0
+    for a in $(seq 1 $#); do
+        case $1 in
+            --connect-timeout)
+                # timeout 
+                optstr="${optstr:+$optstr }--timeout=$2"
+                shift 2; continue
+                ;;
+            -d)
+              #  data as POST;
+                optstr="${optstr:+$optstr }--post-data=\"$2\""
+                shift 2; continue
+                ;;
+            --help)
+              #  print help
+                optstr="${optstr:+$optstr }--help"
+                shift; continue
+                ;;
+            -o)
+              #  outfile
+                have_out=1
+                optstr="${optstr:+$optstr }-O \"$2\""
+                shift 2; continue
+                ;;
+            -s)
+              #  silent
+                optstr="${optstr:+$optstr }-q"
+                shift; continue
+                ;;
+            -u)
+              #  user/pass; lets try to pass it in the URL
+                local authstr=$2
+                shift 2; continue
+                ;;
+            http*|ftp*)
+              #  remote address
+                proto="${1%%:*}"
+                host="${1#*://}"
+                shift; continue
+                ;;
+            '')
+              #  silent ignore
+                continue
+                ;;
+            -A)
+                # setting bddc as reference URL
+                optstr="${optstr:+$optstr }--referer=\"$2\""
+                shift 2; continue
+                ;;
+            *)
+              #  catchall for all possibly unsupported options
+                msg_verbose "Fetcher got an unrecognized argument, ignoring ($1)"
+                shift; continue
+                ;;
+        esac
+    done
+    #  Curl by default dumps to stdout, so if -o wasn't specified assume that.
+    [ "$have_out" -eq "0" ] && optstr="${optstr:+$optstr }-O -"
+    
+    #  Assemble the address
+    address="${proto}://${authstr:+$authstr@}${host}"
+
+    echo $host
+    echo $address
+    echo $optstr
+    echo $authstr
+
+    #  Ready to roll
+    # eval echo wget "$optstr" "\"$address\"" >&2
+    eval wget "$optstr" "\"$address\""
+    return $?
+}
+
+# _msg_console: print message to console; pass msg as arg;
+_msg_console() {
+    $echo -e "$@"
+}
+
+_msg_log() {
+    $echo -e "[`$date +%d/%b/%Y:%T`] | $@" >> $LOGFILE
+}
+
+#### end of Functions
+#######################################
 
 if [ $LOGGING -ge 1 ]; then
     if [ ! -e ${LOGFILE} ] || [ ! -s ${LOGFILE} ]; then
@@ -287,45 +502,38 @@ if [ ! -e ${ip_cache} ] || [ ! -s ${ip_cache} ]; then
     $echo "0.0.0.0" > ${ip_cache} 2> /dev/null
 fi
 if [ ! -r ${ip_cache} ] || [ ! -w ${ip_cache} ] || [ -d ${ip_cache} ]; then
-    $echo "ERROR: Script has no write and/or no read permission for ${ip_cache}!"
-    $echo "NOTICE: the script needs permission to write to this file too: ${router_tmp_file}"
-    if [ $LOGGING -ge 1 ]; then
-        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Script has no write and/or no read permission for ${ip_cache}!" >> $LOGFILE
-    fi
+    msg_error "ERROR: Script has no write and/or no read permission for ${ip_cache}!"
+    [ $CHECKMODE -eq 3 ] && msg_verbose "NOTICE: the script needs permission to write to this file too: ${router_tmp_file}";
     exit 2
 fi
+
 if [ $CHECKMODE -eq 2 ]; then
     echo "" > ${html_tmp_file}
     if [ ! -r ${html_tmp_file} ] || [ ! -w ${html_tmp_file} ] || [ -d ${html_tmp_file} ]; then
-        $echo "ERROR: Script has no write and/or no read permission for ${html_tmp_file}!"
-        if [ $LOGGING -ge 1 ]; then
-            $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Script has no write and/or no read permission for ${html_tmp_file}!" >> $LOGFILE 
-        fi
+        msg_error "ERROR: Script has no write and/or no read permission for ${html_tmp_file}!"
         exit 2
     fi
 fi
 if [ $CHECKMODE -eq 3 ]; then
     echo "" > ${router_tmp_file}
     if [ ! -r ${router_tmp_file} ] || [ ! -w ${router_tmp_file} ] || [ -d ${router_tmp_file} ]; then
-        $echo "ERROR: Script has no write and/or no read permission for ${router_tmp_file}!"
-        if [ $LOGGING -ge 1 ]; then
-            $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Script has no write and/or no read permission for ${router_tmp_file}!" >> $LOGFILE 
-        fi
+        msg_error "ERROR: Script has no write and/or no read permission for ${router_tmp_file}!"
         exit 2
+    fi
 fi
-fi
+
+msg_verbose "Looking for URL fetcher"
+fetcher=
+choose_fetcher
+msg_verbose "Using fetcher: \"$fetcher\""
 
 case "$CHECKMODE" in
 	# ifconfig mode
     1)
         feedback=`$ifconfig | $grep $inet_if`
         if [ -z "$feedback" ]; then
-            if [ $SILENT -eq 0 ]; then
-                $echo "ERROR: internet interface is down!"
-            fi
-            if [ $LOGGING -ge 1 ]; then
-                $echo "[`$date +%d/%b/%Y:%T`] | ERROR: internet interface ($inet_if) is down!" >> $LOGFILE && exit 1 
-            fi
+            msg_error "ERROR: internet interface ($inet_if) is down!"
+            exit 1
         fi
         current_ip=`$ifconfig ${inet_if} | grep "inet " | $sed 's/[^0-9]*//;s/ .*//'`;
         ;;
@@ -333,18 +541,35 @@ case "$CHECKMODE" in
     2)
     	# only edit if you know what you do!
     	# edit line of current_ip to a form that only the ip remains when you get the html file
-		# in this format: '123.123.132.132'
-        string=`$curl --connect-timeout "${remote_timeout}" -s -A "${bddc_name}" $check_url -o ${html_tmp_file}`
-        if [ "28" -eq `echo $?` ]; then
-            if [ $SILENT -eq 0 ]; then
-                $echo "ERROR: timeout (${remote_timeout} second(s) tried on host: ${check_url})"
-            fi
-            if [ $LOGGING -ge 1 ]; then
-                $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${remote_timeout} second(s) tried on host: ${check_url})" >> $LOGFILE
-            fi
-            exit 28;
-        fi
-        current_ip=`$cat $html_tmp_file | $egrep -e ^[\ \t]*\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}| $sed 's/ //g'`
+	# in this format: '123.123.132.132'
+        string=`$fetcher --connect-timeout "${remote_timeout}" -s -A "${bddc_name}" $check_url -o ${html_tmp_file}`
+		## NOTE: I'd suggest replacing this with a general error checking, like if $? != 0 then error, or if
+		#+ more specific error messages are desired, then maybe sth like that:
+        case $? in
+            28) msg_error "ERROR: timeout (${remote_timeout} second(s) tried on host: ${check_url})"; exit 28 ;;
+            1)  msg_error "Could not download from host: \"${check_url}\", is it up?"; exit 1 ;;
+            0)  msg_verbose "Got IP address from host: \"${check_url}\"" ;;
+        esac
+        #  Note: this was tested on few different sites and it works.  Your mileage may vary.
+        #+ This looks for anything that is formatted like an IP number and prints it.
+        #  Sites tested:
+        #o http://whatismyip.com
+        #o http://ipdetect.dnspark.com:8888/
+        #o http://www.ipchicken.com/
+        #o http://checkip.dyndns.org/
+        #o http://www.ip-number.com/index.asp
+        #o http://www.lawrencegoetz.com/programs/ipinfo/
+        #o http://www.cloudnet.com/support/getting_Connected/system.php
+        #o http://www.mediacollege.com/internet/utilities/show-ip.shtml
+        #  alt : |sed -ne "s/[^0-9.]*\(\([0-9]\{1,3\}\.\)\{3\}\([0-9]\{1,3\}\)\).*/\1/p"  # doesn't work when there's a dot in the same line BEFORE the addr
+        #  alt2: |sed -ne "s/.*[^0-9]\(\([0-9]\{1,3\}\.\)\{3\}\([0-9]\{1,3\}\)\).*/\1/p"  # works well, one exception is when addr is on beginning of the line
+        #  alt3: |sed -ne "s/\(^\|.*[^0-9]\)\(\([0-9]\{1,3\}\.\)\{3\}\([0-9]\{1,3\}\)\).*/\2/p" |uniq  # works with all tested sites
+        current_ip=`$cat $html_tmp_file |$sed -ne "s/\(^\|.*[^0-9]\)\(\([0-9]\{1,3\}\.\)\{3\}\([0-9]\{1,3\}\)\).*/\2/p" |$uniq`
+        #current_ip=`$cat $html_tmp_file | $egrep -e ^[\ \t]*\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}| $sed 's/ //g'`
+
+        ## uncomment the next two lines for testing if it works:
+        # $echo $current_ip
+        # exit 0
         rm $html_tmp_file
         ;;
     ######################    
@@ -358,26 +583,20 @@ case "$CHECKMODE" in
                 if [ $loginIsValid == 0 ]; then
                     exit 2
                	fi
-                string=`$curl --connect-timeout "${router_timeout}" -s --anyauth -u ${dlink_user}:"${dlink_passwd}" -o "${router_tmp_file}" http://${dlink_ip}/${dlink_url}`
-                if [ "28" -eq `echo $?` ]; then
-                    if [ $SILENT -eq 0 ]; then
-                        $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${dlink_ip}/${dlink_url})"
-                    fi
-                    if [ $LOGGING -ge 1 ]; then
-                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${router_timeout} second(s) tried on host: http://${dlink_ip}/${dlink_url})" >> $LOGFILE
-                    fi
-                    exit 28;
-		fi
+                string=`$fetcher --connect-timeout "${router_timeout}" -s --anyauth -u ${dlink_user}:"${dlink_passwd}" -o "${router_tmp_file}" http://${dlink_ip}/${dlink_url}`
+                case $? in
+                    28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${dlink_ip}/${dlink_url})"; exit 28 ;;
+                    1)  msg_error "Could not download from host: \"http://${dlink_ip}/${dlink_url}\", is it up?"; exit 1 ;;
+                    0)  msg_verbose "Got IP address from host: \"http://${dlink_ip}/${dlink_url}\"" ;;
+                esac
                 line=`$grep -A 20 ${dlink_mode} ${router_tmp_file} | $grep onnected`
                 line2=${line#"                    ${dlink_wan_mode} "}
-                disconnected=${line2:0:9} # cutting Connected out of file
+                #  In ASH/BusyBox we don't have that construct, unfortunatelly
+                #disconnected=${line2:0:9} # cutting Connected out of file
+                disconnected=$($expr substr "${line2}" 1 9) # cutting Connected out of file
                 if [ "$disconnected" != "Connected" ]; then
-                    if [ $SILENT -eq 0 ]; then
-                        $echo "ERROR: DLink DI-624 internet interface is down!"
-                    fi
-                    if [ $LOGGING -ge 1 ]; then
-                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: DLink DI-624 Internet interface is down!" >> $LOGFILE && exit 1
-                    fi 
+                    msg_error "ERROR: DLink DI-624 internet interface is down!"
+                    exit 1
                 fi
                 current_ip=`grep -A 30 ${dlink_mode} ${router_tmp_file}| grep -A 9 ${dlink_wan_mode} | egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | sed 's/<[^>]*>//g;/</N;'|sed 's/^[^0-9]*//;s/[^0-9]*$//'`
                 rm ${router_tmp_file}
@@ -390,76 +609,54 @@ case "$CHECKMODE" in
                 if [ $loginIsValid == 0 ]; then
                     exit 2
                	fi
-               	string=`$curl --connect-timeout "${router_timeout}" -s --anyauth -u ${netgear1_user}:"${netgear1_passwd}" -o "${router_tmp_file}" http://${netgear1_ip}/${netgear1_url}`
-                if [ "28" -eq `echo $?` ]; then
-                    if [ $SILENT -eq 0 ]; then
-                        $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${netgear1_ip}/${netgear1_url})"
-                    fi
-                    if [ $LOGGING -ge 1 ]; then
-                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${router_timeout} second(s) tried on host: http://${netgear1_ip}/${netgear1_url})" >> $LOGFILE 
-                    fi
-                    exit 28;
-		fi
-               	current_ip=`grep -A 20 "Internet Port" ${router_tmp_file} | grep -A 1 "IP Address"|egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | sed 's/<[^>]*>//g;/</N;'|sed 's/^[^0-9]*//;s/[^0-9]*$//'`
+               	string=`$fetcher --connect-timeout "${router_timeout}" -s --anyauth -u ${netgear1_user}:"${netgear1_passwd}" -o "${router_tmp_file}" http://${netgear1_ip}/${netgear1_url}`
+                case $? in
+                    28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${netgear1_ip}/${netgear1_url})"; exit 28 ;;
+                    1)  msg_error "Could not download from host: \"http://${netgear1_ip}/${netgear1_url}\", is it up?"; exit 1 ;;
+                    0)  msg_verbose "Got IP address from host: \"http://${netgear1_ip}/${netgear1_url}\"" ;;
+                esac
+               	current_ip=`grep -A 20 "Internet Port" ${router_tmp_file} | grep -A 1 "IP Address"|egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | sed 's/<[^>]*>//g;/</N;'|sed 's/^[^0-9]*//;s/[^0-9]*$//'` 
                 if [ -z "$current_ip" ]; then
-                    if [ $SILENT -eq 0 ]; then
-                        $echo "ERROR: Netgear-TA612V internet interface is down!"
-                    fi
-                    if [ $LOGGING -ge 1 ]; then
-                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Netgear-TA612V Internet interface is down!" >> $LOGFILE && exit 1
-                    fi 
+                    msg_error "ERROR: Netgear-TA612V internet interface is down!"
+                    exit 1
                 fi
-                $curl --connect-timeout "${router_timeout}" -s --anyauth -u ${netgear1_user}:${netgear1_passwd} http://${netgear1_ip}/${netgear1_logout}
-                 if [ "28" -eq `echo $?` ]; then
-                     if [ $SILENT -eq 0 ]; then
-                         $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${netgear1_ip}/${netgear1_logout})"
-                     fi
-                     if [ $LOGGING -ge 1 ]; then
-                         $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${router_timeout} second(s) tried on host: http://${netgear1_ip}/${netgear1_logout})" >> $LOGFILE 
-                     fi
-                     exit 28;
-                 fi
-                 rm ${router_tmp_file}
-                 ;;
-            
-             # Netgear WGT 624
+                $fetcher --connect-timeout "${router_timeout}" -s --anyauth -u ${netgear1_user}:${netgear1_passwd} http://${netgear1_ip}/${netgear1_logout}
+                case $? in
+                    28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${netgear1_ip}/${netgear1_logout}"; exit 28 ;;
+                    1)  msg_error "Could not log out from host: \"http://${netgear1_ip}/${netgear1_logout}\", is it up?" ;;  
+                    0)  msg_verbose "Log out from host: \"http://${netgear1_ip}/${netgear1_logout}\"" ;;
+                esac
+                rm ${router_tmp_file}
+                ;;
+
+            # Netgear WGT 624
             3)
              	login_data_valid ${wgt624_user} ${wgt624_passwd}
              	loginIsValid=$?
                 if [ $loginIsValid == 0 ]; then
                     exit 2
                 fi
-                string=`$curl --connect-timeout "${router_timeout}" -s --anyauth -u ${wgt624_user}:"${wgt624_passwd}" -o "${router_tmp_file}" http://${wgt624_ip}/${wgt624_url}`
-                if [ "28" -eq `echo $?` ]; then
-                    if [ $SILENT -eq 0 ]; then
-                        $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${wgt624_ip}/${wgt624_url})"
-                    fi
-                    if [ $LOGGING -ge 1 ]; then
-                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${router_timeout} second(s) tried on host: http://${wgt624_ip}/${wgt624_url})" >> $LOGFILE 
-                    fi
-                    exit 28;
-		fi
-		current_ip=`$grep -A 20 "Internet Port" ${router_tmp_file}| $grep -A 1 "IP Address" | $egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $sed 's/<[^>]*>//g;/</N;'| $sed 's/^[^0-9]*//;s/[^0-9]*$//'`
+                string=`$fetcher --connect-timeout "${router_timeout}" -s --anyauth -u ${wgt624_user}:"${wgt624_passwd}" -o "${router_tmp_file}" http://${wgt624_ip}/${wgt624_url}`
+                case $? in
+                    28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${wgt624_ip}/${wgt624_url})"; exit 28 ;;
+                    1)  msg_error "Could not download from host: \"http://${wgt624_ip}/${wgt624_url}\", is it up?"; exit 1 ;;
+                    0)  msg_verbose "Got IP address from host: \"http://${wgt624_ip}/${wgt624_url}\"" ;;
+                esac
+
+                current_ip=`$grep -A 20 "Internet Port" ${router_tmp_file}| $grep -A 1 "IP Address" | $egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $sed 's/<[^>]*>//g;/</N;'| $sed 's/^[^0-9]*//;s/[^0-9]*$//'`
                 if [ "$current_ip" == "0.0.0.0" ]; then
-                    if [ $SILENT -eq 0 ]; then
-                        $echo "ERROR: WGT 624 internet interface is down!"
-                    fi
-                    if [ $LOGGING -ge 1 ]; then
-                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: WGT 624 Internet interface is down!" >> $LOGFILE && exit 1
-                    fi 
+                    msg_error "ERROR: WGT 624 internet interface is down!"
+                    exit 1
                 fi
-                $curl --connect-timeout "${router_timeout}" -s --anyauth -u ${wgt624_user}:${wgt624_passwd} http://${wgt624_ip}/${wgt624_logout}
-                if [ "28" -eq `echo $?` ]; then
-                    if [ $SILENT -eq 0 ]; then
-                        $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${wgt624_ip}/${wgt624_logout})"
-                    fi
-                    if [ $LOGGING -ge 1 ]; then
-                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${router_timeout} second(s) tried on host: http://${wgt624_ip}/${wgt624_logout})" >> $LOGFILE 
-                    fi
-                    exit 28;
-		fi
+                $fetcher --connect-timeout "${router_timeout}" -s --anyauth -u ${wgt624_user}:${wgt624_passwd} http://${wgt624_ip}/${wgt624_logout}
+                case $? in
+                    28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${wgt624_ip}/${wgt624_logout})"; exit 28 ;;
+                    1)  msg_error "Could not log out from host: \"http://${wgt624_ip}/${wgt624_logout}\", is it up?" ;;
+                    0)  msg_verbose "Log out from host: \"http://${wgt624_ip}/${wgt624_logout}\"" ;;
+                esac
                 rm ${router_tmp_file}
                 ;;
+
              # Digitus DN 11001
             4)
              	login_data_valid ${digitusDN_user} ${digitusDN_passwd}
@@ -467,25 +664,16 @@ case "$CHECKMODE" in
                 if [ $loginIsValid == 0 ]; then
                     exit 2
                 fi
-                string=`$curl --connect-timeout "${router_timeout}" -s --anyauth -u ${digitusDN_user}:"${digitusDN_passwd}" -o "${router_tmp_file}" http://${digitusDN_ip}/${digitusDN_url}`
-               # checking for timeout --> error 28 in curl is timeout...
-                if [ "28" -eq `echo $?` ]; then
-                    if [ $SILENT -eq 0 ]; then
-                        $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${digitusDN_ip}/${digitusDN_url})"
-                    fi
-                    if [ $LOGGING -ge 1 ]; then
-                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${router_timeout} second(s) tried on host: http://${digitusDN_ip}/${digitusDN_url})" >> $LOGFILE 
-                    fi
-                    exit 28;
-		fi
+                string=`$fetcher --connect-timeout "${router_timeout}" -s --anyauth -u ${digitusDN_user}:"${digitusDN_passwd}" -o "${router_tmp_file}" http://${digitusDN_ip}/${digitusDN_url}`
+                case $? in
+                    28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${digitusDN_ip}/${digitusDN_url})"; exit 28 ;;
+                    1)  msg_error "Could not download from host: \"http://${digitusDN_ip}/${digitusDN_url}\", is it up?"; exit 1 ;;
+                    0)  msg_verbose "Got IP address from host: \"http://${digitusDN_ip}/${digitusDN_url}\"" ;;
+                esac
                 current_ip=`grep IP ${router_tmp_file}| grep Adr | egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | sed 's/<[^>]*>//g;/</N;'| sed 's/^[^0-9]*//;s/[^0-9]*$//'`
                 if [ "$current_ip" == "0.0.0.0" ]; then
-                    if [ $SILENT -eq 0 ]; then
-                        $echo "ERROR: Digitus DN 11001 internet interface is down!"
-                    fi
-                    if [ $LOGGING -ge 1 ]; then
-                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Digitus DN 11001 Internet interface is down!" >> $LOGFILE && exit 1
-                    fi 
+                    msg_error "ERROR: Digitus DN 11001 internet interface is down!"
+                    exit 1
                 fi
                 rm ${router_tmp_file}
                 ;;
@@ -497,31 +685,22 @@ case "$CHECKMODE" in
                     exit 2
                 fi
                 # login to router
-#                $wget --timeout=${router_timeout} --post-data 'pws=${philipsPSTN_passwd}' http://${philipsPSTN_ip}/${philipsPSTN_loginpath}
-#                $curl --max-time ${router_timeout} -d name=${philipsPSTN_user} -d pws=${philipsPSTN_passwd} http://${philipsPSTN_ip}/${philipsPSTN_loginpath}
-                $curl --max-time ${router_timeout} -d pws=${philipsPSTN_passwd} http://${philipsPSTN_ip}/${philipsPSTN_loginpath}
-                string=`$curl --connect-timeout "${router_timeout}" -s -o "${router_tmp_file}" http://${philipsPSTN_ip}/${philipsPSTN_url}`
-               # checking for timeout --> error 28 in curl is timeout...
-                if [ "28" -eq `echo $?` ]; then
-                    if [ $SILENT -eq 0 ]; then
-                        $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${philipsPSTN_ip}/${philipsPSTN_url})"
-                    fi
-                    if [ $LOGGING -ge 1 ]; then
-                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${router_timeout} second(s) tried on host: http://${philipsPSTN_ip}/${philipsPSTN_url})" >> $LOGFILE 
-                    fi
-                    exit 28;
-		fi
+                #$wget --timeout=${router_timeout} --post-data 'pws=${philipsPSTN_passwd}' http://${philipsPSTN_ip}/${philipsPSTN_loginpath}
+                #$curl --max-time ${router_timeout} -d name=${philipsPSTN_user} -d pws=${philipsPSTN_passwd} http://${philipsPSTN_ip}/${philipsPSTN_loginpath}
+                $fetcher --max-time ${router_timeout} -d pws=${philipsPSTN_passwd} http://${philipsPSTN_ip}/${philipsPSTN_loginpath}
+                string=`$fetcher --connect-timeout "${router_timeout}" -s -o "${router_tmp_file}" http://${philipsPSTN_ip}/${philipsPSTN_url}`
+                case $? in
+                    28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${philipsPSTN_ip}/${philipsPSTN_url})"; exit 28 ;;
+                    1)  msg_error "Could not download from host: \"http://${philipsPSTN_ip}/${philipsPSTN_url}\", is it up?"; exit 1 ;;
+                    0)  msg_verbose "Got IP address from host: \"http://${philipsPSTN_ip}/${philipsPSTN_url}\"" ;;
+                esac
                 current_ip=`grep "var wan_ip" "${router_tmp_file}" | cut -d \" -f 2`
                 if [ "$current_ip" == "0.0.0.0" ]; then
-                    if [ $SILENT -eq 0 ]; then
-                        $echo "ERROR: Philips Wireless PSTN internet interface is down!"
-                    fi
-                    if [ $LOGGING -ge 1 ]; then
-                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Philips Wireless PSTN Internet interface is down!" >> $LOGFILE && exit 1
-                    fi 
+                    msg_error "ERROR: Philips Wireless PSTN internet interface is down!"
+                    exit 1
                 fi
                 # logout from router
-                $curl http://${philipsPSTN_ip}/${philipsPSTN_logoutpath} 2> /dev/null
+                $fetcher http://${philipsPSTN_ip}/${philipsPSTN_logoutpath} 2> /dev/null
                 rm ${router_tmp_file}
                 ;;
             # Westell 327W
@@ -531,29 +710,21 @@ case "$CHECKMODE" in
                 if [ $loginIsValid == 0 ]; then
                     exit 2
                 fi
-                string=`$curl --connect-timeout "${router_timeout}" -s --anyauth -u ${west327_user}:"${west327_passwd}" -o "${router_tmp_file}" http://${west327_ip}/${west327_url}`
-               # checking for timeout --> error 28 in curl is timeout...
-                if [ "28" -eq `echo $?` ]; then
-                    if [ $SILENT -eq 0 ]; then
-                        $echo "ERROR: timeout (${router_timeout} second(s) tried on host: http://${west327_ip}/${west327_url})"
-                    fi
-                    if [ $LOGGING -ge 1 ]; then
-                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${router_timeout} second(s) tried on host: http://${west327_ip}/${west327_url})" >> $LOGFILE 
-                    fi
-                    exit 28;
-		fi
-#                current_ip=`grep -A 1 Secondary ${router_tmp_file} | egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | gawk -F";" ' {print $2}' | sed 's/<br>&nbsp//'`
+                string=`$fetcher --connect-timeout "${router_timeout}" -s --anyauth -u ${west327_user}:"${west327_passwd}" -o "${router_tmp_file}" http://${west327_ip}/${west327_url}`
+                case $? in
+                    28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${west327_ip}/${west327_url})"; exit 28 ;;
+                    1)  msg_error "Could not download from host: \"http://${west327_ip}/${west327_url}\", is it up?"; exit 1 ;;
+                    0)  msg_verbose "Got IP address from host: \"http://${west327_ip}/${west327_url}\"" ;;
+                esac
+                #current_ip=`grep -A 1 Secondary ${router_tmp_file} | egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | gawk -F";" ' {print $2}' | sed 's/<br>&nbsp//'`
                 current_ip=`$grep -A 1 Secondary ${router_tmp_file} | $egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $cut -d ';' -f 2 | $sed 's/<br>&nbsp//'`
                 if [ "$current_ip" == "0.0.0.0" ]; then
-                    if [ $SILENT -eq 0 ]; then
-                        $echo "ERROR: Westell 327W internet interface is down!"
-                    fi
-                    if [ $LOGGING -ge 1 ]; then
-                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: Westell 327W Internet interface is down!" >> $LOGFILE && exit 1
-                    fi 
+                    msg_error "ERROR: Westell 327W internet interface is down!"
+                    exit 1
                 fi
                 rm ${router_tmp_file}
                 ;;
+
         esac
         ;;
 esac
@@ -563,196 +734,119 @@ old_ip=`$cat $ip_cache`
 if [ "$current_ip" != "$old_ip" ]
     then
     
-    $echo $current_ip > $ip_cache
-    
     case $IPSYNMODE in
         # afraid.org
         1)
       	    # afraid.org gets IP over the http request of your url
-            afraid_feedback=`$curl --connect-timeout "${remote_timeout}" -A "${bddc_name}" -s "$afraid_url"`
-            if [ "28" -eq `echo $?` ]; then
-                if [ $SILENT -eq 0 ]; then
-                    $echo "ERROR: timeout (${remote_timeout} second(s) tried on host: ${afraid_url})"
-                fi
-                if [ $LOGGING -ge 1 ]; then
-                    $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${remote_timeout} second(s) tried on host: ${afraid_url})" >> $LOGFILE 
-                fi
-                exit 28;
-            fi
+            afraid_feedback=`$fetcher --connect-timeout "${remote_timeout}" -A "${bddc_name}" -s "$afraid_url"`
+            case $? in
+                28) msg_error "ERROR: timeout (${remote_timeout} second(s) tried on host: ${afraid_url})"; 
+                    exit 28 ;;
+                1)  msg_error "Could not download from host: \"${afraid_url}\", is it up?"; exit 1 ;;
+                0)  msg_verbose "Updated IP address on host: \"${afraid_url}\"" ;;
+            esac
 
-            if [ "ERROR" = ${afraid_feedback:0:5} ]; then
-                if [ $SILENT -eq "0" ]; then
-                    $echo "afraid.org: ${afraid_feedback}"
-                fi
-                if [ $LOGGING -ge "1" ]; then
-                    $echo "[`$date +%d/%b/%Y:%T`] | afraid.org: ${afraid_feedback}" >> $LOGFILE && exit 1
-                fi 
+            if [ "ERROR" = "$(expr "${afraid_feedback}" 1 5)" ]; then
+                msg_error "afraid.org: ${afraid_feedback}"
+                exit 1
             fi
             ;;
-        
+
     # dyndns.org
         2)
 	    dyndnsorg_ip=$current_ip;
             myurl=`$echo "http://${dyndnsorg_username}:${dyndnsorg_passwd}@members.dyndns.org/nic/update?system=dyndns&hostname=${dyndnsorg_hostnameS}&myip=${dyndnsorg_ip}&wildcard=${dyndnsorg_wildcard}&mx=${dyndnsorg_mail}&backmx=${dyndnsorg_backmx}&offline=${dyndnsorg_offline}"`
-            dyndnsorg_feedback=`$curl --connect-timeout "${remote_timeout}" -s -A "${bddc_name}" ${myurl}`
-            if [ "28" -eq `echo $?` ]; then
-                if [ $SILENT -eq 0 ]; then
-                    $echo "ERROR: timeout (${remote_timeout} second(s) tried on host: ${myurl})"
-                fi
-                if [ $LOGGING -ge 1 ]; then
-                    $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${remote_timeout} second(s) tried on host: ${myurl})" >> $LOGFILE 
-                fi
-                exit 28;
+            dyndnsorg_feedback=`$fetcher --connect-timeout "${remote_timeout}" -s -A "${bddc_name}" ${myurl}`
+            case $? in
+                28) msg_error "ERROR: timeout (${remote_timeout} second(s) tried on host: ${myurl})"; exit 28 ;;
+                1)  msg_error "Could not connect to host: \"${myurl}\", is it up?"; exit 1 ;;
+                0)  msg_verbose "Connected to host: \"${myurl}\"" ;;
+            esac
+
+            if [ "$(expr substr "${dyndnsorg_feedback}" 1 8)" == "badagent" ]; then
+                msg_error "dyndns.org: ERROR The user agent that was sent has been blocked for not following the specifications (${dyndnsorg_feedback})"
+                exit 1
             fi
-			if [ "${dyndnsorg_feedback:0:8}" == "badagent" ]; then
-                            if [ $SILENT -eq "0" ]; then
-                                $echo "dyndns.org: ERROR The user agent that was sent has been blocked for not following the specifications (${dyndnsorg_feedback})"
-                            fi
-                            if [ $LOGGING -ge "1" ]; then
-                                $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: ERROR The user agent that was sent has been blocked for not following the specifications (${dyndnsorg_feedback})" >> $LOGFILE && exit 1
-                            fi 
-                        fi
-                        if [  "${dyndnsorg_feedback:0:5}" == "abuse" ]; then
-                            if [ $SILENT -eq "0" ]; then
-                                $echo "dyndns.org: ERROR account blocked because of abuse (${dyndnsorg_feedback})"
-                            fi
-                            if [ $LOGGING -ge "1" ]; then
-                                $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: ERROR account blocked because of abuse (${dyndnsorg_feedback})" >> $LOGFILE && exit 1
-                            fi 
-                        fi
-                        if [ "${dyndnsorg_feedback:0:7}" == "notfqdn" ]; then
-                            if [ $SILENT -eq "0" ]; then
-                                $echo "dyndns.org: ERROR domain name is not fully qualified (${dyndnsorg_feedback})"
-                            fi
-                            if [ $LOGGING -ge "1" ]; then
-                                $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: ERROR domain name is not fully qualified (${dyndnsorg_feedback})" >> $LOGFILE && exit 1
-                            fi 
-                        fi
-                        if [ "${dyndnsorg_feedback:0:7}" == "badauth" ]; then
-                            if [ $SILENT -eq "0" ]; then
-                                $echo "dyndns.org: ERROR bad authentication (${dyndnsorg_feedback})"
-                            fi
-                            if [ $LOGGING -ge "1" ]; then
-                                $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: ERROR bad authentication (${dyndnsorg_feedback})" >> $LOGFILE && exit 2
-                            fi 
-                        fi
-                        if [ "${dyndnsorg_feedback:0:4}" == "good" ]; then
-                            if [ $SILENT -eq "0" ]; then
-                                $echo "dyndns.org: update successful (${dyndnsorg_feedback})"
-                            fi
-                            if [ $LOGGING -ge "2" ]; then
-                                $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: update successful (${dyndnsorg_feedback})" >> $LOGFILE
-                            fi
-                        fi
-                        if [ "${dyndnsorg_feedback:0:5}" == "nochg" ]; then
-                            if [ $SILENT -eq "0" ]; then
-                    $echo "dyndns.org: still the same ip (${dyndnsorg_feedback})"
-                            fi
-                            if [ $LOGGING -ge "3" ]; then
-                    $echo "[`$date +%d/%b/%Y:%T`] | dyndns.org: still the same ip (${dyndnsorg_feedback})" >> $LOGFILE
-                            fi
-                        fi
-	    if [ $SILENT -eq "0" ]; then
-                $echo "dyndns.org: $dyndnsorg_feedback"
+            if [  "$(expr substr "${dyndnsorg_feedback}" 1 5)" == "abuse" ]; then
+                msg_error "dyndns.org: ERROR account blocked because of abuse (${dyndnsorg_feedback})"
+                exit 1
             fi
+            if [ "$(expr substr "${dyndnsorg_feedback}" 1 7)" == "notfqdn" ]; then
+                msg_error "dyndns.org: ERROR domain name is not fully qualified (${dyndnsorg_feedback})"
+                exit 1
+            fi
+            if [ "$(expr substr "${dyndnsorg_feedback}" 1 7)" == "badauth" ]; then
+                msg_error "dyndns.org: ERROR bad authentication (${dyndnsorg_feedback})"
+                exit 2
+            fi
+            if [ "$(expr substr "${dyndnsorg_feedback}" 1 4)" == "good" ]; then
+                msg_info "dyndns.org: update successful (${dyndnsorg_feedback})"
+            fi
+            if [ "$(expr substr "${dyndnsorg_feedback}" 1 5)" == "nochg" ]; then
+                msg_verbose "dyndns.org: still the same ip (${dyndnsorg_feedback})"
+            fi
+            msg_verbose "dyndns.org: $dyndnsorg_feedback"
             ;;
+
         3)
-	    noipcom_ip=$current_ip;
+            noipcom_ip=$current_ip;
             myurl=`$echo "http://dynupdate.no-ip.com/nic/update?hostname=${noipcom_hostnameS}&myip=${noipcom_ip}"`
-            noipcom_feedback=`$curl --connect-timeout "${remote_timeout}" -s -A "${bddc_name}" --basic -u ${noipcom_username}:${noipcom_passwd} ${myurl}`
-            if [ "28" -eq `echo $?` ]; then
-                if [ $SILENT -eq 0 ]; then
-                        $echo "ERROR: timeout (${remote_timeout} second(s) tried on host: ${myurl})"
+            noipcom_feedback=`$fetcher --connect-timeout "${remote_timeout}" -s -A "${bddc_name}" --basic -u ${noipcom_username}:${noipcom_passwd} ${myurl}`
+            case $? in
+                28) msg_error "ERROR: timeout (${remote_timeout} second(s) tried on host: ${myurl})"; exit 28 ;;
+                1)  msg_error "Could not connect to host: \"${myurl}\", is it up?"; exit 1 ;;
+                0)  msg_verbose "Connected to host: \"${myurl}\"" ;;
+            esac
+            if [ "$(expr substr "${noipcom_feedback}" 1 8)" == "badagent" ]; then
+                msg_error "no-ip.com: ERROR The user agent that was sent has been blocked for not following the specifications (${noipcom_feedback})"
+                msg_error "no-ip.com: ERROR Client disabled. Client should exit and not perform any more updates without user intervention. (${noipcom_feedback})"
+                exit 1
             fi
-            if [ $LOGGING -ge 1 ]; then
-                        $echo "[`$date +%d/%b/%Y:%T`] | ERROR: timeout (${remote_timeout} second(s) tried on host: ${myurl})" >> $LOGFILE 
+            if [  "$(expr substr "${noipcom_feedback}" 1 5)" == "abuse" ]; then
+                msg_error "no-ip.com: ERROR Account disabled due to violation of No-IP terms of service. Our terms of service can be viewed at http://www.no-ip.com/legal/tos (${noipcom_feedback})"
+                exit 1
             fi
- 			exit 28;
-			fi
-            if [ "${noipcom_feedback:0:8}" == "badagent" ]; then
-                if [ $SILENT -eq "0" ]; then
-                    $echo "no-ip.com: ERROR The user agent that was sent has been blocked for not following the specifications (${noipcom_feedback})"
-                fi
-                if [ $LOGGING -ge "1" ]; then
-                    $echo "[`$date +%d/%b/%Y:%T`] | no-ip.com: ERROR Client disabled. Client should exit and not perform any more updates without user intervention. (${noipcom_feedback})" >> $LOGFILE && exit 1
-                fi 
+            if [ "$(expr substr "${noipcom_feedback}" 1 6)" == "nohost" ]; then
+                msg_error "no-ip.com: ERROR Hostname supplied does not exist (${noipcom_feedback})"
+                exit 1
             fi
-	    if [  "${noipcom_feedback:0:5}" == "abuse" ]; then
-                if [ $SILENT -eq "0" ]; then
-                    $echo "no-ip.com: ERROR Account disabled due to violation of No-IP terms of service. Our terms of service can be viewed at http://www.no-ip.com/legal/tos (${noipcom_feedback})"
-                fi
-                if [ $LOGGING -ge "1" ]; then
-                    $echo "[`$date +%d/%b/%Y:%T`] | no-ip.com: ERROR Account disabled due to violation of No-IP terms of service. Our terms of service can be viewed at http://www.no-ip.com/legal/tos (${noipcom_feedback})" >> $LOGFILE && exit 1
-                fi 
+            if [ "$(expr substr "${noipcom_feedback}" 1 7)" == "badauth" ]; then
+                msg_error "no-ip.com: ERROR Invalid username (${noipcom_feedback})"
+                exit 2
             fi
-	    if [ "${noipcom_feedback:0:6}" == "nohost" ]; then
-                if [ $SILENT -eq "0" ]; then
-                    $echo "no-ip.com: ERROR Hostname supplied does not exist (${noipcom_feedback})"
-                fi
-                if [ $LOGGING -ge "1" ]; then
-                    $echo "[`$date +%d/%b/%Y:%T`] | no-ip.com: ERROR Hostname supplied does not exist (${noipcom_feedback})" >> $LOGFILE && exit 1
-                fi 
+            if [ "$(expr substr "${noipcom_feedback}" 1 4)" == "good" ]; then
+                msg_info "no-ip.com: DNS hostname update successful (${noipcom_feedback})"
             fi
-	    if [ "${noipcom_feedback:0:7}" == "badauth" ]; then
-                if [ $SILENT -eq "0" ]; then
-                    $echo "no-ip.com: ERROR Invalid username (${noipcom_feedback})"
-                fi
-                if [ $LOGGING -ge "1" ]; then
-                    $echo "[`$date +%d/%b/%Y:%T`] | no-ip.com: ERROR Invalid username (${noipcom_feedback})" >> $LOGFILE && exit 2
-                fi 
+            if [ "$(expr substr "${noipcom_feedback}" 1 5)" == "nochg" ]; then
+                msg_verbose "no-ip.com: IP address is current, no update performed (${noipcom_feedback})"
             fi
-	    if [ "${noipcom_feedback:0:4}" == "good" ]; then
-                if [ $SILENT -eq "0" ]; then
-                    $echo "no-ip.com: DNS hostname update successful (${noipcom_feedback})"
-                fi
-                if [ $LOGGING -ge "2" ]; then
-                    $echo "[`$date +%d/%b/%Y:%T`] | no-ip.com: DNS hostname update successful (${noipcom_feedback})" >> $LOGFILE
-                fi
-            fi
-	    if [ "${noipcom_feedback:0:5}" == "nochg" ]; then
-                if [ $SILENT -eq "0" ]; then
-                    $echo "no-ip.com: IP address is current, no update performed (${noipcom_feedback})"
-                fi
-                if [ $LOGGING -ge "3" ]; then
-                    $echo "[`$date +%d/%b/%Y:%T`] | no-ip.com: IP address is current, no update performed (${noipcom_feedback})" >> $LOGFILE
-                fi
-            fi
-	    if [ $SILENT -eq "0" ]; then
-                $echo "no-ip.com: $noipcom_feedback"
-            fi
+            msg_verbose "no-ip.com: $noipcom_feedback"
             ;;
+
         T)
             # testing option for scripting, that you dont get banned from a service
-            if [ $SILENT -eq "0" ]; then
-                $echo "Performing no update ;)"
-            fi
+            msg_info "Performing no update (T) ;)"
             ;;
     esac
-    
+
+    $echo $current_ip > $ip_cache
+
     #logging
-    if [ $LOGGING -ge "2" ]
-        then
-        $echo "[`$date +%d/%b/%Y:%T`] | ip changed: $current_ip" >> $LOGFILE
-    fi 
-    if [ $SILENT -eq "0" ]
-        then
-        $echo "[`$date +%d/%b/%Y:%T`] | ip changed: $current_ip"
-    fi
+    msg_info "ip changed: $current_ip"
     #/logging
-fi
+else
+    msg_verbose "IP Address not changed since last update, skipping."
+fi #/ if ip changed
+
 
 # check if nameserver got ip!
 if [ $ping_check -eq 1 ]; then
     ns_ip=`$ping -c 1 ${my_url} | $grep PING | $cut -d \( -f 2 | $cut -d \) -f 1`
+    msg_verbose "Performed ping check, NS returned IP: $ns_ip"
     if [ "$current_ip" != "$ns_ip" ]; then
-		if [ "$old_ip" == "127.0.0.1" ]; then
-        	if [ $SILENT -eq 0 ]; then
-           	 $echo -e "ERROR: your dns service did not update your ip the first time\nMaybe you forgot to set the IPSYNMODE option to a correct value (T is just for testing)"
-        	fi
-        	if [ $LOGGING -ge 1 ]; then
-           	 $echo -e "[`$date +%d/%b/%Y:%T`] | ERROR: your dns service did not update your ip the first time\n
-                         dns record: $ns_ip | your ip: $current_ip\n" >> $LOGFILE 
-        	fi
+        msg_verbose "Nameservers did not register the change yet."
+        if [ "$old_ip" == "127.0.0.1" ]; then
+            msg_error "ERROR: your dns service did not update your ip the first time\nMaybe you forgot to set the IPSYNMODE option to a correct value (T is just for testing)\ndns record: $ns_ip | your ip: $current_ip"
         fi
         # this forces an update at next check and prompts the error message
         $echo "127.0.0.1" > $ip_cache
@@ -760,15 +854,7 @@ if [ $ping_check -eq 1 ]; then
 fi
 #/ check if nameserver got ip!
 
-    
+msg_verbose "current ip: $current_ip"
+exit 0
 
 
-if [ $LOGGING -ge "3" ]
-    then
-    $echo "[`$date +%d/%b/%Y:%T`] | current ip: $current_ip" >> $LOGFILE
-fi
-if [ $SILENT -eq "0" ]
-    then
-    $echo "[`$date +%d/%b/%Y:%T`] | current ip: $current_ip"
-fi
-exit 0 
