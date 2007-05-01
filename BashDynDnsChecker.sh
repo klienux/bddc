@@ -1,5 +1,5 @@
 #!/bin/bash
-bddc_version="0.1"
+bddc_version="0.2"
 ################################################################################
 # licensed under the                                                           #
 # The MIT License                                                              #
@@ -141,6 +141,7 @@ remote_timeout=10
 # 4 -> Digitus DN 11001
 # 5 -> Philips Wireless PSTN (currently testing...)
 # 6 -> Verizon Westell 327W (currently testing...)
+# 7 -> La Fonera (remote over wlan)
 ROUTER=1
 router_timeout=5
 router_tmp_file=/tmp/bddc_router_tmp_file
@@ -197,13 +198,21 @@ philipsPSTN_loginpath=cgi-bin/login.exe
 philipsPSTN_logoutpath=cgi-bin/logout.exe
 #-------/Philips------
 
-#-------Westell 327W ------- Currently testing...
+#-------Westell 327W------- Currently testing...
 # ad 6: Westell 327W conf
 west327_user="ADMIN"
 west327_passwd="PASSWD"
 west327_ip=192.168.0.1
 west327_url=advstat.htm
-#------/Westell 327W--------
+#------/Westell 327W-------
+
+#-------La Fonera-------
+# ad 7: La Fonera conf
+lafonera_user="ADMIN" # is not needed, status page is accessable without username
+lafonera_passwd="PASSWD" # is not needed, status page is accessable without pwd
+lafonera_ip=192.168.10.1
+lafonera_url=cgi-bin/status.sh
+#------/La Fonera-------
 ######### / R O U T E R #########
 
 #####################
@@ -726,6 +735,21 @@ case "$CHECKMODE" in
                 current_ip=`$grep -A 1 Secondary ${router_tmp_file} | $egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $cut -d ';' -f 2 | $sed 's/<br>&nbsp//'`
                 if [ "$current_ip" == "0.0.0.0" ]; then
                     msg_error "ERROR: Westell 327W internet interface is down!"
+                    exit 1
+                fi
+                rm ${router_tmp_file}
+                ;;
+            # La Fonera
+            7)
+                string=`$fetcher --connect-timeout "${router_timeout}" -s -o "${router_tmp_file}" http://${lafonera_ip}/${lafonera_url}`
+                case $? in
+                    28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${lafonera_ip}/${lafonera_url})"; exit 28 ;;
+                    1)  msg_error "Could not download from host: \"http://${lafonera_ip}/${lafonera_url}\", is it up?"; exit 1 ;;
+                    0)  msg_tattle "Got IP address from host: \"http://${lafonera_ip}/${lafonera_url}\"" ;;
+                esac
+                current_ip=`$cat ${router_tmp_file} | $grep -A 2 "Internet connection" | $grep "IP Address" | $cut -d \> -f 5 | $cut -d \< -f 1`
+                if [ "$current_ip" == "N/A" ]; then
+                    msg_error "ERROR: La Fonera internet interface is down!"
                     exit 1
                 fi
                 rm ${router_tmp_file}
