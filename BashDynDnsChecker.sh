@@ -747,7 +747,7 @@ case "$CHECKMODE" in
                     1)  msg_error "Could not download from host: \"http://${lafonera_ip}/${lafonera_url}\", is it up?"; exit 1 ;;
                     0)  msg_tattle "Got IP address from host: \"http://${lafonera_ip}/${lafonera_url}\"" ;;
                 esac
-                current_ip=`$cat ${router_tmp_file} | $grep -A 2 "Internet connection" | $grep "IP Address" | $cut -d \> -f 5 | $cut -d \< -f 1`
+                current_ip=`$cat ${router_tmp_file} | $grep -A 2 -i Internet | $grep IP| $cut -d : -f 2 | $sed 's/<[^>]*>//g' | sed 's/ //g'`
                 if [ "$current_ip" == "N/A" ]; then
                     msg_error "ERROR: La Fonera internet interface is down!"
                     exit 1
