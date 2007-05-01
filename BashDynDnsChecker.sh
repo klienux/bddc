@@ -97,11 +97,13 @@ wget=wget
 
 ######################
 # change logging level
+# 4 -> log every step, this is fine to see what bddc does (debugging mode)
+#      this is only prompted to the console if (SILENT=0 AND LOGGING=4)
 # 3 -> log whenever a check is done
 # 2 -> log when ip changes
 # 1 -> log errors
 # 0 -> log nothing
-LOGGING=2
+LOGGING=3
 LOGFILE=/var/log/bddc.log
 
 # cache file for ip address
@@ -117,7 +119,7 @@ SILENT=0
 # 1 -> output of ifconfig
 # 2 -> remote website
 # 3 -> router info over http
-CHECKMODE=3
+CHECKMODE=2
 
 #################################
 # ad 1: your internet interface
@@ -145,8 +147,6 @@ router_tmp_file=/tmp/bddc_router_tmp_file
 
 #-------DLink-DI-624---------
 # ad 1: DLink DI-624 conf
-#dlink_user="ADMIN"
-#dlink_passwd="PASSWD"
 dlink_user="ADMIN"
 dlink_passwd="PASSWD"
 dlink_ip=192.168.0.1
@@ -265,7 +265,6 @@ my_url=your.domain.com
 # list of preferred url fetchers
 # it is safe to leave this at default setting. this simply specifies order in
 # which they are checked. must not be empty.
-#preferred_fetchers="$curl $wget"
 preferred_fetchers="$wget $curl"
 
 ################################################################################
@@ -328,6 +327,13 @@ msg_info() {
 msg_verbose() {
     [ $SILENT -eq 0 ] && _msg_console "$@"
     [ $LOGGING -ge 3 ] && _msg_log "VERBOSE: $@"
+}
+
+msg_tattle() {
+    if [ $LOGGING -ge 4 ]; then 
+        _msg_log "VERBOSE: $@"
+        [ $SILENT -eq 0 ] && _msg_console "$@"
+    fi
 }
 
 # _fetcher_bbwget: download specified target with busybox's wget; expects options 
@@ -522,10 +528,10 @@ if [ $CHECKMODE -eq 3 ]; then
     fi
 fi
 
-msg_verbose "Looking for URL fetcher"
+msg_tattle "Looking for URL fetcher"
 fetcher=
 choose_fetcher
-msg_verbose "Using fetcher: \"$fetcher\""
+msg_tattle "Using fetcher: \"$fetcher\""
 
 case "$CHECKMODE" in
 	# ifconfig mode
@@ -548,7 +554,7 @@ case "$CHECKMODE" in
         case $? in
             28) msg_error "ERROR: timeout (${remote_timeout} second(s) tried on host: ${check_url})"; exit 28 ;;
             1)  msg_error "Could not download from host: \"${check_url}\", is it up?"; exit 1 ;;
-            0)  msg_verbose "Got IP address from host: \"${check_url}\"" ;;
+            0)  msg_tattle "Got IP address from host: \"${check_url}\"" ;;
         esac
         #  Note: this was tested on few different sites and it works.  Your mileage may vary.
         #+ This looks for anything that is formatted like an IP number and prints it.
@@ -567,7 +573,7 @@ case "$CHECKMODE" in
         current_ip=`$cat $html_tmp_file |$sed -ne "s/\(^\|.*[^0-9]\)\(\([0-9]\{1,3\}\.\)\{3\}\([0-9]\{1,3\}\)\).*/\2/p" |$uniq`
         #current_ip=`$cat $html_tmp_file | $egrep -e ^[\ \t]*\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}| $sed 's/ //g'`
 
-        ## uncomment the next two lines for testing if it works:
+        ## uncomment the next two lines for testing, to see if it works:
         # $echo $current_ip
         # exit 0
         rm $html_tmp_file
@@ -587,7 +593,7 @@ case "$CHECKMODE" in
                 case $? in
                     28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${dlink_ip}/${dlink_url})"; exit 28 ;;
                     1)  msg_error "Could not download from host: \"http://${dlink_ip}/${dlink_url}\", is it up?"; exit 1 ;;
-                    0)  msg_verbose "Got IP address from host: \"http://${dlink_ip}/${dlink_url}\"" ;;
+                    0)  msg_tattle "Got IP address from host: \"http://${dlink_ip}/${dlink_url}\"" ;;
                 esac
                 line=`$grep -A 20 ${dlink_mode} ${router_tmp_file} | $grep onnected`
                 line2=${line#"                    ${dlink_wan_mode} "}
@@ -613,7 +619,7 @@ case "$CHECKMODE" in
                 case $? in
                     28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${netgear1_ip}/${netgear1_url})"; exit 28 ;;
                     1)  msg_error "Could not download from host: \"http://${netgear1_ip}/${netgear1_url}\", is it up?"; exit 1 ;;
-                    0)  msg_verbose "Got IP address from host: \"http://${netgear1_ip}/${netgear1_url}\"" ;;
+                    0)  msg_tattle "Got IP address from host: \"http://${netgear1_ip}/${netgear1_url}\"" ;;
                 esac
                	current_ip=`grep -A 20 "Internet Port" ${router_tmp_file} | grep -A 1 "IP Address"|egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | sed 's/<[^>]*>//g;/</N;'|sed 's/^[^0-9]*//;s/[^0-9]*$//'` 
                 if [ -z "$current_ip" ]; then
@@ -624,7 +630,7 @@ case "$CHECKMODE" in
                 case $? in
                     28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${netgear1_ip}/${netgear1_logout}"; exit 28 ;;
                     1)  msg_error "Could not log out from host: \"http://${netgear1_ip}/${netgear1_logout}\", is it up?" ;;  
-                    0)  msg_verbose "Log out from host: \"http://${netgear1_ip}/${netgear1_logout}\"" ;;
+                    0)  msg_tattle "Log out from host: \"http://${netgear1_ip}/${netgear1_logout}\"" ;;
                 esac
                 rm ${router_tmp_file}
                 ;;
@@ -640,7 +646,7 @@ case "$CHECKMODE" in
                 case $? in
                     28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${wgt624_ip}/${wgt624_url})"; exit 28 ;;
                     1)  msg_error "Could not download from host: \"http://${wgt624_ip}/${wgt624_url}\", is it up?"; exit 1 ;;
-                    0)  msg_verbose "Got IP address from host: \"http://${wgt624_ip}/${wgt624_url}\"" ;;
+                    0)  msg_tattle "Got IP address from host: \"http://${wgt624_ip}/${wgt624_url}\"" ;;
                 esac
 
                 current_ip=`$grep -A 20 "Internet Port" ${router_tmp_file}| $grep -A 1 "IP Address" | $egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $sed 's/<[^>]*>//g;/</N;'| $sed 's/^[^0-9]*//;s/[^0-9]*$//'`
@@ -652,7 +658,7 @@ case "$CHECKMODE" in
                 case $? in
                     28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${wgt624_ip}/${wgt624_logout})"; exit 28 ;;
                     1)  msg_error "Could not log out from host: \"http://${wgt624_ip}/${wgt624_logout}\", is it up?" ;;
-                    0)  msg_verbose "Log out from host: \"http://${wgt624_ip}/${wgt624_logout}\"" ;;
+                    0)  msg_tattle "Log out from host: \"http://${wgt624_ip}/${wgt624_logout}\"" ;;
                 esac
                 rm ${router_tmp_file}
                 ;;
@@ -668,7 +674,7 @@ case "$CHECKMODE" in
                 case $? in
                     28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${digitusDN_ip}/${digitusDN_url})"; exit 28 ;;
                     1)  msg_error "Could not download from host: \"http://${digitusDN_ip}/${digitusDN_url}\", is it up?"; exit 1 ;;
-                    0)  msg_verbose "Got IP address from host: \"http://${digitusDN_ip}/${digitusDN_url}\"" ;;
+                    0)  msg_tattle "Got IP address from host: \"http://${digitusDN_ip}/${digitusDN_url}\"" ;;
                 esac
                 current_ip=`grep IP ${router_tmp_file}| grep Adr | egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | sed 's/<[^>]*>//g;/</N;'| sed 's/^[^0-9]*//;s/[^0-9]*$//'`
                 if [ "$current_ip" == "0.0.0.0" ]; then
@@ -692,7 +698,7 @@ case "$CHECKMODE" in
                 case $? in
                     28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${philipsPSTN_ip}/${philipsPSTN_url})"; exit 28 ;;
                     1)  msg_error "Could not download from host: \"http://${philipsPSTN_ip}/${philipsPSTN_url}\", is it up?"; exit 1 ;;
-                    0)  msg_verbose "Got IP address from host: \"http://${philipsPSTN_ip}/${philipsPSTN_url}\"" ;;
+                    0)  msg_tattle "Got IP address from host: \"http://${philipsPSTN_ip}/${philipsPSTN_url}\"" ;;
                 esac
                 current_ip=`grep "var wan_ip" "${router_tmp_file}" | cut -d \" -f 2`
                 if [ "$current_ip" == "0.0.0.0" ]; then
@@ -714,7 +720,7 @@ case "$CHECKMODE" in
                 case $? in
                     28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${west327_ip}/${west327_url})"; exit 28 ;;
                     1)  msg_error "Could not download from host: \"http://${west327_ip}/${west327_url}\", is it up?"; exit 1 ;;
-                    0)  msg_verbose "Got IP address from host: \"http://${west327_ip}/${west327_url}\"" ;;
+                    0)  msg_tattle "Got IP address from host: \"http://${west327_ip}/${west327_url}\"" ;;
                 esac
                 #current_ip=`grep -A 1 Secondary ${router_tmp_file} | egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | gawk -F";" ' {print $2}' | sed 's/<br>&nbsp//'`
                 current_ip=`$grep -A 1 Secondary ${router_tmp_file} | $egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $cut -d ';' -f 2 | $sed 's/<br>&nbsp//'`
@@ -743,7 +749,9 @@ if [ "$current_ip" != "$old_ip" ]
                 28) msg_error "ERROR: timeout (${remote_timeout} second(s) tried on host: ${afraid_url})"; 
                     exit 28 ;;
                 1)  msg_error "Could not download from host: \"${afraid_url}\", is it up?"; exit 1 ;;
-                0)  msg_verbose "Updated IP address on host: \"${afraid_url}\"" ;;
+                0)  # everything went fine
+                    msg_tattle "Updated IP address on host: \"${afraid_url}\"" 
+                    ;;
             esac
 
             if [ "ERROR" = "$(expr "${afraid_feedback}" 1 5)" ]; then
@@ -760,7 +768,9 @@ if [ "$current_ip" != "$old_ip" ]
             case $? in
                 28) msg_error "ERROR: timeout (${remote_timeout} second(s) tried on host: ${myurl})"; exit 28 ;;
                 1)  msg_error "Could not connect to host: \"${myurl}\", is it up?"; exit 1 ;;
-                0)  msg_verbose "Connected to host: \"${myurl}\"" ;;
+                0)  # everything went fine
+                    msg_tattle "Connected to host: \"${myurl}\"" 
+                    ;;
             esac
 
             if [ "$(expr substr "${dyndnsorg_feedback}" 1 8)" == "badagent" ]; then
@@ -785,7 +795,7 @@ if [ "$current_ip" != "$old_ip" ]
             if [ "$(expr substr "${dyndnsorg_feedback}" 1 5)" == "nochg" ]; then
                 msg_verbose "dyndns.org: still the same ip (${dyndnsorg_feedback})"
             fi
-            msg_verbose "dyndns.org: $dyndnsorg_feedback"
+            msg_tattle "dyndns.org: $dyndnsorg_feedback"
             ;;
 
         3)
@@ -795,7 +805,7 @@ if [ "$current_ip" != "$old_ip" ]
             case $? in
                 28) msg_error "ERROR: timeout (${remote_timeout} second(s) tried on host: ${myurl})"; exit 28 ;;
                 1)  msg_error "Could not connect to host: \"${myurl}\", is it up?"; exit 1 ;;
-                0)  msg_verbose "Connected to host: \"${myurl}\"" ;;
+                0)  msg_tattle "Connected to host: \"${myurl}\"" ;;
             esac
             if [ "$(expr substr "${noipcom_feedback}" 1 8)" == "badagent" ]; then
                 msg_error "no-ip.com: ERROR The user agent that was sent has been blocked for not following the specifications (${noipcom_feedback})"
@@ -820,12 +830,12 @@ if [ "$current_ip" != "$old_ip" ]
             if [ "$(expr substr "${noipcom_feedback}" 1 5)" == "nochg" ]; then
                 msg_verbose "no-ip.com: IP address is current, no update performed (${noipcom_feedback})"
             fi
-            msg_verbose "no-ip.com: $noipcom_feedback"
+            msg_tattle "no-ip.com: $noipcom_feedback"
             ;;
 
         T)
             # testing option for scripting, that you dont get banned from a service
-            msg_info "Performing no update (T) ;)"
+            msg_info "Performing no update (T option active) ;)"
             ;;
     esac
 
@@ -835,16 +845,16 @@ if [ "$current_ip" != "$old_ip" ]
     msg_info "ip changed: $current_ip"
     #/logging
 else
-    msg_verbose "IP Address not changed since last update, skipping."
+    msg_tattle "IP Address not changed since last update, skipping."
 fi #/ if ip changed
 
 
 # check if nameserver got ip!
 if [ $ping_check -eq 1 ]; then
     ns_ip=`$ping -c 1 ${my_url} | $grep PING | $cut -d \( -f 2 | $cut -d \) -f 1`
-    msg_verbose "Performed ping check, NS returned IP: $ns_ip"
+    msg_tattle "Performed ping check, NS returned IP: $ns_ip"
     if [ "$current_ip" != "$ns_ip" ]; then
-        msg_verbose "Nameservers did not register the change yet."
+        msg_tattle "Nameservers did not register the change yet."
         if [ "$old_ip" == "127.0.0.1" ]; then
             msg_error "ERROR: your dns service did not update your ip the first time\nMaybe you forgot to set the IPSYNMODE option to a correct value (T is just for testing)\ndns record: $ns_ip | your ip: $current_ip"
         fi
