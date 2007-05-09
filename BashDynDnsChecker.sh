@@ -1,5 +1,5 @@
 #!/bin/bash
-bddc_version="0.2"
+bddc_version="0.3"
 ################################################################################
 # licensed under the                                                           #
 # The MIT License                                                              #
@@ -48,7 +48,8 @@ bddc_version="0.2"
 # perpetual program.                                                           #
 #                                                                              #
 # (!) if you use bddc on a wrt environment, change the very first line from    #
-# '#/bin/bash' to '#/bin/sh', without the quotes.                              #
+# '#/bin/bash' to '#/bin/sh', without the quotes                               #
+# and clear the cutting_string variable at the end of the edit space           #
 #                                                                              #
 # if you want your router to be supported,                                     #
 # add the following information to the feature request site on sourceforge.net:#
@@ -67,6 +68,7 @@ bddc_version="0.2"
 # *) plus full name of the router                                              #
 # *) your name and email address for contact and testing purpose before        #
 #    a release is done.                                                        #
+# OR, send us a patch of your changes                                          #
 #                                                                              #
 # exit codes:                                                                  #
 # 0  -> everything went fine                                                   #
@@ -122,7 +124,7 @@ SILENT=0
 CHECKMODE=2
 
 #################################
-# ad 1: your internet interface
+# ad 1: your internet interface (eth0,eth1,en0,en1...)
 inet_if=eth0
 
 #################################
@@ -146,17 +148,18 @@ ROUTER=1
 router_timeout=5
 router_tmp_file=/tmp/bddc_router_tmp_file
 
-#-------DLink-DI-624---------
+#-------DLink-DI-624/DI-524---------
 # ad 1: DLink DI-624 conf
 dlink_user="ADMIN"
 dlink_passwd="PASSWD"
 dlink_ip=192.168.0.1
 #choose one only
 dlink_wan_mode=PPTP/PPPoE/DHCP
-# this helps parsing (do not change)
-dlink_url=st_devic.html
+# this helps parsing, uncomment your router version
+dlink_url=st_devic.html  # DI-624
+#dlink_url=st_device.html  # DI-524
 dlink_mode=WAN
-#------/Dlink-DI-624---------
+#------/Dlink-DI-624/DI-524---------
 
 #-------Netgear-TA612V--------
 # ad 2: Netgear-TA612V conf
@@ -215,7 +218,7 @@ lafonera_url=cgi-bin/status.sh
 #------/La Fonera-------
 ######### / R O U T E R #########
 
-#####################
+########## DNS Server Section ###########
 # mode of syndication
 # 1 -> use afraid.org url
 # 2 -> use dyndns.org
@@ -254,6 +257,7 @@ noipcom_hostnameS=1st.domain.com,2nd.domain.com
 #for testing
 noipcom_ip=
 #-----------/no-ip.com-----------------
+########## / DNS Server Section ###########
 
 # the name of the client that is sent with updates and requests (do not change)
 bddc_name="bashdyndnschecker (bddc v${bddc_version})/bddc.sf.net"
@@ -275,6 +279,11 @@ my_url=your.domain.com
 # it is safe to leave this at default setting. this simply specifies order in
 # which they are checked. must not be empty.
 preferred_fetchers="$wget $curl"
+
+# if you are using bddc on a wrt environment clear the cutting_string variable 
+# do NOT edit this otherwise
+cutting_string="$echo ${str:${in1}:${in2}};" # for full featured Linux and Mac Os X
+#cutting_string= # for WRT systems
 
 ################################################################################
 # End of editspace, just go further if you know what you are doing             #
@@ -491,6 +500,21 @@ _fetcher_wget() {
     return $?
 }
 
+_cut_string() {
+    str=$1
+    in1=$2
+    in2=$3
+    if [ "$( $expr substr "okokokok" 1 2 2> /dev/null )" == "ok" ]; then 
+        $echo $( $expr substr "${str}" ${in1} ${in2} )
+    else 
+        let "in1=$in1 - 1"
+        # moved this line into config space 
+        # (wrt users will get an error if this line is in the code) 
+        #        $echo ${str:${in1}:${in2}}; 
+        ${cutting_string}
+    fi 
+}
+
 # _msg_console: print message to console; pass msg as arg;
 _msg_console() {
     $echo -e "$@"
@@ -591,7 +615,7 @@ case "$CHECKMODE" in
     # router per http mode
     3)   
         case $ROUTER in
-             # DLink DI-624
+             # DLink DI-624/524
             1)
              	login_data_valid ${dlink_user} ${dlink_passwd}
              	loginIsValid=$?
@@ -608,10 +632,14 @@ case "$CHECKMODE" in
                 line2=${line#"                    ${dlink_wan_mode} "}
                 #  In ASH/BusyBox we don't have that construct, unfortunatelly
                 #disconnected=${line2:0:9} # cutting Connected out of file
-                disconnected=$($expr substr "${line2}" 1 9) # cutting Connected out of file
+                disconnected=$(_cut_string "${line2}" 1 9) # cutting Connected out of file
                 if [ "$disconnected" != "Connected" ]; then
-                    msg_error "ERROR: DLink DI-624 internet interface is down!"
-                    exit 1
+				  # Try the DI-524 version
+                    disconnected=$(_cut_string "${line2}" 14 9)
+                    if [ "$disconnected" != "Connected" ]; then
+                      msg_error "ERROR: DLink DI-624/524 internet interface is down!"
+                      exit 1
+                    fi
                 fi
                 current_ip=`grep -A 30 ${dlink_mode} ${router_tmp_file}| grep -A 9 ${dlink_wan_mode} | egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | sed 's/<[^>]*>//g;/</N;'|sed 's/^[^0-9]*//;s/[^0-9]*$//'`
                 rm ${router_tmp_file}
@@ -778,7 +806,7 @@ if [ "$current_ip" != "$old_ip" ]
                     ;;
             esac
 
-            if [ "ERROR" = "$(expr "${afraid_feedback}" 1 5)" ]; then
+            if [ "ERROR" = "$(_cut_string "${afraid_feedback}" 1 5)" ]; then
                 msg_error "afraid.org: ${afraid_feedback}"
                 exit 1
             fi
@@ -797,26 +825,26 @@ if [ "$current_ip" != "$old_ip" ]
                     ;;
             esac
 
-            if [ "$(expr substr "${dyndnsorg_feedback}" 1 8)" == "badagent" ]; then
+            if [ "$(_cut_string "${dyndnsorg_feedback}" 1 8)" == "badagent" ]; then
                 msg_error "dyndns.org: ERROR The user agent that was sent has been blocked for not following the specifications (${dyndnsorg_feedback})"
                 exit 1
             fi
-            if [  "$(expr substr "${dyndnsorg_feedback}" 1 5)" == "abuse" ]; then
+            if [  "$(_cut_string "${dyndnsorg_feedback}" 1 5)" == "abuse" ]; then
                 msg_error "dyndns.org: ERROR account blocked because of abuse (${dyndnsorg_feedback})"
                 exit 1
             fi
-            if [ "$(expr substr "${dyndnsorg_feedback}" 1 7)" == "notfqdn" ]; then
+            if [ "$(_cut_string "${dyndnsorg_feedback}" 1 7)" == "notfqdn" ]; then
                 msg_error "dyndns.org: ERROR domain name is not fully qualified (${dyndnsorg_feedback})"
                 exit 1
             fi
-            if [ "$(expr substr "${dyndnsorg_feedback}" 1 7)" == "badauth" ]; then
+            if [ "$(_cut_string "${dyndnsorg_feedback}" 1 7)" == "badauth" ]; then
                 msg_error "dyndns.org: ERROR bad authentication (${dyndnsorg_feedback})"
                 exit 2
             fi
-            if [ "$(expr substr "${dyndnsorg_feedback}" 1 4)" == "good" ]; then
+            if [ "$(_cut_string "${dyndnsorg_feedback}" 1 4)" == "good" ]; then
                 msg_info "dyndns.org: update successful (${dyndnsorg_feedback})"
             fi
-            if [ "$(expr substr "${dyndnsorg_feedback}" 1 5)" == "nochg" ]; then
+            if [ "$(_cut_string "${dyndnsorg_feedback}" 1 5)" == "nochg" ]; then
                 msg_verbose "dyndns.org: still the same ip (${dyndnsorg_feedback})"
             fi
             msg_tattle "dyndns.org: $dyndnsorg_feedback"
@@ -831,27 +859,27 @@ if [ "$current_ip" != "$old_ip" ]
                 1)  msg_error "Could not connect to host: \"${myurl}\", is it up?"; exit 1 ;;
                 0)  msg_tattle "Connected to host: \"${myurl}\"" ;;
             esac
-            if [ "$(expr substr "${noipcom_feedback}" 1 8)" == "badagent" ]; then
+            if [ "$(_cut_string "${noipcom_feedback}" 1 8)" == "badagent" ]; then
                 msg_error "no-ip.com: ERROR The user agent that was sent has been blocked for not following the specifications (${noipcom_feedback})"
                 msg_error "no-ip.com: ERROR Client disabled. Client should exit and not perform any more updates without user intervention. (${noipcom_feedback})"
                 exit 1
             fi
-            if [  "$(expr substr "${noipcom_feedback}" 1 5)" == "abuse" ]; then
+            if [  "$(_cut_string "${noipcom_feedback}" 1 5)" == "abuse" ]; then
                 msg_error "no-ip.com: ERROR Account disabled due to violation of No-IP terms of service. Our terms of service can be viewed at http://www.no-ip.com/legal/tos (${noipcom_feedback})"
                 exit 1
             fi
-            if [ "$(expr substr "${noipcom_feedback}" 1 6)" == "nohost" ]; then
+            if [ "$(_cut_string "${noipcom_feedback}" 1 6)" == "nohost" ]; then
                 msg_error "no-ip.com: ERROR Hostname supplied does not exist (${noipcom_feedback})"
                 exit 1
             fi
-            if [ "$(expr substr "${noipcom_feedback}" 1 7)" == "badauth" ]; then
+            if [ "$(_cut_string "${noipcom_feedback}" 1 7)" == "badauth" ]; then
                 msg_error "no-ip.com: ERROR Invalid username (${noipcom_feedback})"
                 exit 2
             fi
-            if [ "$(expr substr "${noipcom_feedback}" 1 4)" == "good" ]; then
+            if [ "$(_cut_string "${noipcom_feedback}" 1 4)" == "good" ]; then
                 msg_info "no-ip.com: DNS hostname update successful (${noipcom_feedback})"
             fi
-            if [ "$(expr substr "${noipcom_feedback}" 1 5)" == "nochg" ]; then
+            if [ "$(_cut_string "${noipcom_feedback}" 1 5)" == "nochg" ]; then
                 msg_verbose "no-ip.com: IP address is current, no update performed (${noipcom_feedback})"
             fi
             msg_tattle "no-ip.com: $noipcom_feedback"
