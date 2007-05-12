@@ -1,5 +1,5 @@
 #!/bin/bash
-bddc_version="0.3"
+bddc_version="0.3.1"
 ################################################################################
 # licensed under the                                                           #
 # The MIT License                                                              #
@@ -808,7 +808,10 @@ if [ "$current_ip" != "$old_ip" ]
 
             if [ "ERROR" = "$(_cut_string "${afraid_feedback}" 1 5)" ]; then
                 msg_error "afraid.org: ${afraid_feedback}"
-                exit 1
+                # do not exit if ip did not change 
+                if [ "" = "$( $echo ${afraid_feedback} | $grep "has not changed." )" ]; then
+                    exit 1
+                fi
             fi
             ;;
 
