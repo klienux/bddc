@@ -100,7 +100,7 @@ wget=wget
 ######################
 # change logging level
 # 4 -> log every step, this is fine to see what bddc does (debugging mode)
-#      this is only prompted to the console if (SILENT=0 AND LOGGING=4)
+#      this is only prompted to the console if SILENT=0 AND LOGGING=4
 # 3 -> log whenever a check is done
 # 2 -> log when ip changes
 # 1 -> log errors
@@ -137,7 +137,7 @@ remote_timeout=10
 
 ########### R O U T E R #########
 # ad 3: router model
-# 1 -> DLink DI-624
+# 1 -> DLink DI-624/DI-624+/DI-524
 # 2 -> Netgear-TA612V
 # 3 -> Netgear WGT-624
 # 4 -> Digitus DN 11001
@@ -148,18 +148,18 @@ ROUTER=1
 router_timeout=5
 router_tmp_file=/tmp/bddc_router_tmp_file
 
-#-------DLink-DI-624/DI-524---------
-# ad 1: DLink DI-624 conf
+#-------DLink-DI-624/DI-624+/DI-524---------
+# ad 1: DLink DI-624/DI-624+/DI-524 conf
 dlink_user="ADMIN"
 dlink_passwd="PASSWD"
 dlink_ip=192.168.0.1
 #choose one only
 dlink_wan_mode=PPTP/PPPoE/DHCP
 # this helps parsing, uncomment your router version
-dlink_url=st_devic.html  # DI-624
+dlink_url=st_devic.html  # DI-624/DI-624+
 #dlink_url=st_device.html  # DI-524
 dlink_mode=WAN
-#------/Dlink-DI-624/DI-524---------
+#------/Dlink-DI-624/DI-624+/DI-524---------
 
 #-------Netgear-TA612V--------
 # ad 2: Netgear-TA612V conf
@@ -190,7 +190,7 @@ digitusDN_ip=192.168.0.1
 digitusDN_url=status.htm
 #-------/Digitus DN 11001------
 
-#-------Philips Router------- Currently testing...
+#-------Philips Wireless PSTN------- Currently testing...
 # ad 5: Philips Wireless PSTN conf
 philipsPSTN_user="ADMIN"
 philipsPSTN_passwd="PASSWD"
@@ -199,7 +199,7 @@ philipsPSTN_ip=192.168.0.1
 philipsPSTN_url=status_main.stm
 philipsPSTN_loginpath=cgi-bin/login.exe
 philipsPSTN_logoutpath=cgi-bin/logout.exe
-#-------/Philips------
+#-------/Philips Wireless PSTN------
 
 #-------Westell 327W------- Currently testing...
 # ad 6: Westell 327W conf
@@ -209,13 +209,13 @@ west327_ip=192.168.0.1
 west327_url=advstat.htm
 #------/Westell 327W-------
 
-#-------La Fonera-------
+#-------La Fonera (FON2100A/B/C)-------
 # ad 7: La Fonera conf
-lafonera_user="ADMIN" # is not needed, status page is accessable without username
+lafonera_user="ADMIN" # is not needed, status page is accessable without username 
 lafonera_passwd="PASSWD" # is not needed, status page is accessable without pwd
 lafonera_ip=192.168.10.1
 lafonera_url=cgi-bin/status.sh
-#------/La Fonera-------
+#------/La Fonera (FON2100A/B/C)-------
 ######### / R O U T E R #########
 
 ########## DNS Server Section ###########
@@ -225,7 +225,6 @@ lafonera_url=cgi-bin/status.sh
 # 3 -> use no-ip.com
 # T -> testing option (doing nothing)
 IPSYNMODE=T
-
 
 #------------afraid.org-----------------
 # ad 1: your update url using afraid.org
@@ -264,7 +263,7 @@ bddc_name="bashdyndnschecker (bddc v${bddc_version})/bddc.sf.net"
 
 # Ping check
 # checks if the dns service edited your ip.
-# pings your hostname (my_url) to check for the ip
+# pings your hostname (my_url) to check for the ip.
 # updates again if ip differs from current ip. 
 # enabled if 1.
 ping_check=0
@@ -529,7 +528,7 @@ _msg_log() {
 
 if [ $LOGGING -ge 1 ]; then
     if [ ! -e ${LOGFILE} ] || [ ! -s ${LOGFILE} ]; then
-        $echo "BashDynDnsChecker Logfile:" >> ${LOGFILE} 2> /dev/null
+        $echo "${bddc_name} Logfile:" >> ${LOGFILE} 2> /dev/null
     fi
     if [ ! -r ${LOGFILE} ] || [ ! -w ${LOGFILE} ] || [ -d ${LOGFILE} ]; then
         $echo "ERROR: Script has no write and/or no read permission for logfile ${LOGFILE}!"
@@ -582,8 +581,7 @@ case "$CHECKMODE" in
     	# edit line of current_ip to a form that only the ip remains when you get the html file
 	# in this format: '123.123.132.132'
         string=`$fetcher --connect-timeout "${remote_timeout}" -s -A "${bddc_name}" $check_url -o ${html_tmp_file}`
-		## NOTE: I'd suggest replacing this with a general error checking, like if $? != 0 then error, or if
-		#+ more specific error messages are desired, then maybe sth like that:
+
         case $? in
             28) msg_error "ERROR: timeout (${remote_timeout} second(s) tried on host: ${check_url})"; exit 28 ;;
             1)  msg_error "Could not download from host: \"${check_url}\", is it up?"; exit 1 ;;
@@ -642,7 +640,6 @@ case "$CHECKMODE" in
                     fi
                 fi
                 current_ip=`grep -A 30 ${dlink_mode} ${router_tmp_file}| grep -A 9 ${dlink_wan_mode} | egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | sed 's/<[^>]*>//g;/</N;'|sed 's/^[^0-9]*//;s/[^0-9]*$//'`
-                rm ${router_tmp_file}
                 ;;
             
              # Netgear-TA612V
@@ -669,7 +666,6 @@ case "$CHECKMODE" in
                     1)  msg_error "Could not log out from host: \"http://${netgear1_ip}/${netgear1_logout}\", is it up?" ;;  
                     0)  msg_tattle "Log out from host: \"http://${netgear1_ip}/${netgear1_logout}\"" ;;
                 esac
-                rm ${router_tmp_file}
                 ;;
 
             # Netgear WGT 624
@@ -697,7 +693,6 @@ case "$CHECKMODE" in
                     1)  msg_error "Could not log out from host: \"http://${wgt624_ip}/${wgt624_logout}\", is it up?" ;;
                     0)  msg_tattle "Log out from host: \"http://${wgt624_ip}/${wgt624_logout}\"" ;;
                 esac
-                rm ${router_tmp_file}
                 ;;
 
              # Digitus DN 11001
@@ -718,7 +713,6 @@ case "$CHECKMODE" in
                     msg_error "ERROR: Digitus DN 11001 internet interface is down!"
                     exit 1
                 fi
-                rm ${router_tmp_file}
                 ;;
              # Philips Wireless PSTN
             5)
@@ -744,7 +738,6 @@ case "$CHECKMODE" in
                 fi
                 # logout from router
                 $fetcher http://${philipsPSTN_ip}/${philipsPSTN_logoutpath} 2> /dev/null
-                rm ${router_tmp_file}
                 ;;
             # Westell 327W
             6)
@@ -765,7 +758,6 @@ case "$CHECKMODE" in
                     msg_error "ERROR: Westell 327W internet interface is down!"
                     exit 1
                 fi
-                rm ${router_tmp_file}
                 ;;
             # La Fonera
             7)
@@ -780,9 +772,8 @@ case "$CHECKMODE" in
                     msg_error "ERROR: La Fonera internet interface is down!"
                     exit 1
                 fi
-                rm ${router_tmp_file}
                 ;;
-
+            rm ${router_tmp_file}
         esac
         ;;
 esac
