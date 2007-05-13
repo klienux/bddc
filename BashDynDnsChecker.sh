@@ -573,7 +573,7 @@ case "$CHECKMODE" in
             msg_error "ERROR: internet interface ($inet_if) is down!"
             exit 1
         fi
-        current_ip=`$ifconfig ${inet_if} | grep "inet " | $sed 's/[^0-9]*//;s/ .*//'`;
+        current_ip=`$ifconfig ${inet_if} |$grep "inet " | $sed 's/[^0-9]*//;s/ .*//'`;
         ;;
     # remote website mode 
     2)
@@ -598,9 +598,9 @@ case "$CHECKMODE" in
         #o http://www.lawrencegoetz.com/programs/ipinfo/
         #o http://www.cloudnet.com/support/getting_Connected/system.php
         #o http://www.mediacollege.com/internet/utilities/show-ip.shtml
-        #  alt : |sed -ne "s/[^0-9.]*\(\([0-9]\{1,3\}\.\)\{3\}\([0-9]\{1,3\}\)\).*/\1/p"  # doesn't work when there's a dot in the same line BEFORE the addr
-        #  alt2: |sed -ne "s/.*[^0-9]\(\([0-9]\{1,3\}\.\)\{3\}\([0-9]\{1,3\}\)\).*/\1/p"  # works well, one exception is when addr is on beginning of the line
-        #  alt3: |sed -ne "s/\(^\|.*[^0-9]\)\(\([0-9]\{1,3\}\.\)\{3\}\([0-9]\{1,3\}\)\).*/\2/p" |uniq  # works with all tested sites
+        #  alt : |$sed -ne "s/[^0-9.]*\(\([0-9]\{1,3\}\.\)\{3\}\([0-9]\{1,3\}\)\).*/\1/p"  # doesn't work when there's a dot in the same line BEFORE the addr
+        #  alt2: |$sed -ne "s/.*[^0-9]\(\([0-9]\{1,3\}\.\)\{3\}\([0-9]\{1,3\}\)\).*/\1/p"  # works well, one exception is when addr is on beginning of the line
+        #  alt3: |$sed -ne "s/\(^\|.*[^0-9]\)\(\([0-9]\{1,3\}\.\)\{3\}\([0-9]\{1,3\}\)\).*/\2/p" |uniq  # works with all tested sites
         current_ip=`$cat $html_tmp_file |$sed -ne "s/\(^\|.*[^0-9]\)\(\([0-9]\{1,3\}\.\)\{3\}\([0-9]\{1,3\}\)\).*/\2/p" |$uniq`
         #current_ip=`$cat $html_tmp_file | $egrep -e ^[\ \t]*\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}| $sed 's/ //g'`
 
@@ -639,7 +639,7 @@ case "$CHECKMODE" in
                       exit 1
                     fi
                 fi
-                current_ip=`grep -A 30 ${dlink_mode} ${router_tmp_file}| grep -A 9 ${dlink_wan_mode} | egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | sed 's/<[^>]*>//g;/</N;'|sed 's/^[^0-9]*//;s/[^0-9]*$//'`
+                current_ip=`$grep -A 30 ${dlink_mode} ${router_tmp_file}|$grep -A 9 ${dlink_wan_mode} |$egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $sed 's/<[^>]*>//g;/</N;'|$sed 's/^[^0-9]*//;s/[^0-9]*$//' |$egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}`
                 ;;
             
              # Netgear-TA612V
@@ -655,7 +655,7 @@ case "$CHECKMODE" in
                     1)  msg_error "Could not download from host: \"http://${netgear1_ip}/${netgear1_url}\", is it up?"; exit 1 ;;
                     0)  msg_tattle "Got IP address from host: \"http://${netgear1_ip}/${netgear1_url}\"" ;;
                 esac
-               	current_ip=`grep -A 20 "Internet Port" ${router_tmp_file} | grep -A 1 "IP Address"|egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | sed 's/<[^>]*>//g;/</N;'|sed 's/^[^0-9]*//;s/[^0-9]*$//'` 
+               	current_ip=`$grep -A 20 "Internet Port" ${router_tmp_file} |$grep -A 1 "IP Address"|egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $sed 's/<[^>]*>//g;/</N;'|$sed 's/^[^0-9]*//;s/[^0-9]*$//'` 
                 if [ -z "$current_ip" ]; then
                     msg_error "ERROR: Netgear-TA612V internet interface is down!"
                     exit 1
@@ -708,7 +708,7 @@ case "$CHECKMODE" in
                     1)  msg_error "Could not download from host: \"http://${digitusDN_ip}/${digitusDN_url}\", is it up?"; exit 1 ;;
                     0)  msg_tattle "Got IP address from host: \"http://${digitusDN_ip}/${digitusDN_url}\"" ;;
                 esac
-                current_ip=`grep IP ${router_tmp_file}| grep Adr | egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | sed 's/<[^>]*>//g;/</N;'| sed 's/^[^0-9]*//;s/[^0-9]*$//'`
+                current_ip=`$grep IP ${router_tmp_file}|$grep Adr |$egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $sed 's/<[^>]*>//g;/</N;'| $sed 's/^[^0-9]*//;s/[^0-9]*$//'`
                 if [ "$current_ip" == "0.0.0.0" ]; then
                     msg_error "ERROR: Digitus DN 11001 internet interface is down!"
                     exit 1
@@ -731,7 +731,7 @@ case "$CHECKMODE" in
                     1)  msg_error "Could not download from host: \"http://${philipsPSTN_ip}/${philipsPSTN_url}\", is it up?"; exit 1 ;;
                     0)  msg_tattle "Got IP address from host: \"http://${philipsPSTN_ip}/${philipsPSTN_url}\"" ;;
                 esac
-                current_ip=`grep "var wan_ip" "${router_tmp_file}" | cut -d \" -f 2`
+                current_ip=`$grep "var wan_ip" "${router_tmp_file}" | cut -d \" -f 2`
                 if [ "$current_ip" == "0.0.0.0" ]; then
                     msg_error "ERROR: Philips Wireless PSTN internet interface is down!"
                     exit 1
@@ -752,7 +752,7 @@ case "$CHECKMODE" in
                     1)  msg_error "Could not download from host: \"http://${west327_ip}/${west327_url}\", is it up?"; exit 1 ;;
                     0)  msg_tattle "Got IP address from host: \"http://${west327_ip}/${west327_url}\"" ;;
                 esac
-                #current_ip=`grep -A 1 Secondary ${router_tmp_file} | egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | gawk -F";" ' {print $2}' | sed 's/<br>&nbsp//'`
+                #current_ip=`$grep -A 1 Secondary ${router_tmp_file} |$egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | gawk -F";" ' {print $2}' | $sed 's/<br>&nbsp//'`
                 current_ip=`$grep -A 1 Secondary ${router_tmp_file} | $egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $cut -d ';' -f 2 | $sed 's/<br>&nbsp//'`
                 if [ "$current_ip" == "0.0.0.0" ]; then
                     msg_error "ERROR: Westell 327W internet interface is down!"
@@ -767,7 +767,7 @@ case "$CHECKMODE" in
                     1)  msg_error "Could not download from host: \"http://${lafonera_ip}/${lafonera_url}\", is it up?"; exit 1 ;;
                     0)  msg_tattle "Got IP address from host: \"http://${lafonera_ip}/${lafonera_url}\"" ;;
                 esac
-                current_ip=`$cat ${router_tmp_file} | $grep -A 2 -i Internet | $grep IP| $cut -d : -f 2 | $sed 's/<[^>]*>//g' | sed 's/ //g'`
+                current_ip=`$cat ${router_tmp_file} | $grep -A 2 -i Internet | $grep IP| $cut -d : -f 2 | $sed 's/<[^>]*>//g' | $sed 's/ //g'`
                 if [ "$current_ip" == "N/A" ]; then
                     msg_error "ERROR: La Fonera internet interface is down!"
                     exit 1
