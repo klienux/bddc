@@ -773,8 +773,8 @@ case "$CHECKMODE" in
                     exit 1
                 fi
                 ;;
-            rm ${router_tmp_file}
         esac
+        rm ${router_tmp_file}
         ;;
 esac
 
