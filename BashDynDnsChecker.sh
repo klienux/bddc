@@ -815,12 +815,7 @@ if [ "$current_ip" != "$old_ip" ]
 			
             if [ "ERROR" = "$(_cut_string "${afraid_feedback}" 1 5)" ]; then
                 msg_error "afraid.org: ${afraid_feedback}"
-                # do not exit on this error, ip must be updated to cache file:
-                # - "ERROR: Address $address has not changed.";
-                # exit on every other
-                if [ "" = "$( $echo ${afraid_feedback} | $grep "has not changed." )" ]; then
-                    exit 1
-                fi
+                # do not exit on any error, timeout is there too
             fi
             ;;
 
