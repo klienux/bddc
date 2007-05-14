@@ -1,5 +1,5 @@
 #!/bin/bash
-bddc_version="0.3.1"
+bddc_version="0.3.2"
 ################################################################################
 # licensed under the                                                           #
 # The MIT License                                                              #
@@ -50,6 +50,8 @@ bddc_version="0.3.1"
 # (!) if you use bddc on a wrt environment, change the very first line from    #
 # '#/bin/bash' to '#/bin/sh', without the quotes                               #
 # and clear the cutting_string variable at the end of the edit space           #
+# you should further turn the log level very low, after you made shure bddc    #
+# works correctly. this would otherwise fill up your memory quickly.           #
 #                                                                              #
 # if you want your router to be supported,                                     #
 # add the following information to the feature request site on sourceforge.net:#
@@ -324,7 +326,7 @@ choose_fetcher() {
 
 login_data_valid () {
     if [ "$1" == "ADMIN" ] || [ "$2" == "PASSWD" ]; then
-        msg_error "ERROR: check the login settings for your router"
+        msg_error "check the login settings for your router"
         return 0;
     fi
     return 1;
@@ -401,8 +403,8 @@ _fetcher_bbwget() {
                 continue
                 ;;
             *)
-              #  catchall for all possibly unsupported options
-                msg_verbose "Fetcher got an unrecognized argument, ignoring ($1)"
+              #  catchall for all possibly unsupported options (should not effect functionality)
+                msg_tattle "Fetcher got an unrecognized argument, ignoring ($1)"
                 shift; continue
                 ;;
         esac
@@ -540,7 +542,7 @@ if [ ! -e ${ip_cache} ] || [ ! -s ${ip_cache} ]; then
     $echo "0.0.0.0" > ${ip_cache} 2> /dev/null
 fi
 if [ ! -r ${ip_cache} ] || [ ! -w ${ip_cache} ] || [ -d ${ip_cache} ]; then
-    msg_error "ERROR: Script has no write and/or no read permission for ${ip_cache}!"
+    msg_error "Script has no write and/or no read permission for ${ip_cache}!"
     [ $CHECKMODE -eq 3 ] && msg_verbose "NOTICE: the script needs permission to write to this file too: ${router_tmp_file}";
     exit 2
 fi
@@ -548,14 +550,14 @@ fi
 if [ $CHECKMODE -eq 2 ]; then
     echo "" > ${html_tmp_file}
     if [ ! -r ${html_tmp_file} ] || [ ! -w ${html_tmp_file} ] || [ -d ${html_tmp_file} ]; then
-        msg_error "ERROR: Script has no write and/or no read permission for ${html_tmp_file}!"
+        msg_error "Script has no write and/or no read permission for ${html_tmp_file}!"
         exit 2
     fi
 fi
 if [ $CHECKMODE -eq 3 ]; then
     echo "" > ${router_tmp_file}
     if [ ! -r ${router_tmp_file} ] || [ ! -w ${router_tmp_file} ] || [ -d ${router_tmp_file} ]; then
-        msg_error "ERROR: Script has no write and/or no read permission for ${router_tmp_file}!"
+        msg_error "Script has no write and/or no read permission for ${router_tmp_file}!"
         exit 2
     fi
 fi
@@ -570,7 +572,7 @@ case "$CHECKMODE" in
     1)
         feedback=`$ifconfig | $grep $inet_if`
         if [ -z "$feedback" ]; then
-            msg_error "ERROR: internet interface ($inet_if) is down!"
+            msg_error "internet interface ($inet_if) is down!"
             exit 1
         fi
         current_ip=`$ifconfig ${inet_if} |$grep "inet " | $sed 's/[^0-9]*//;s/ .*//'`;
@@ -583,7 +585,7 @@ case "$CHECKMODE" in
         string=`$fetcher --connect-timeout "${remote_timeout}" -s -A "${bddc_name}" $check_url -o ${html_tmp_file}`
 
         case $? in
-            28) msg_error "ERROR: timeout (${remote_timeout} second(s) tried on host: ${check_url})"; exit 28 ;;
+            28) msg_error "timeout (${remote_timeout} second(s) tried on host: ${check_url})"; exit 28 ;;
             1)  msg_error "Could not download from host: \"${check_url}\", is it up?"; exit 1 ;;
             0)  msg_tattle "Got IP address from host: \"${check_url}\"" ;;
         esac
@@ -622,7 +624,7 @@ case "$CHECKMODE" in
                	fi
                 string=`$fetcher --connect-timeout "${router_timeout}" -s --anyauth -u ${dlink_user}:"${dlink_passwd}" -o "${router_tmp_file}" http://${dlink_ip}/${dlink_url}`
                 case $? in
-                    28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${dlink_ip}/${dlink_url})"; exit 28 ;;
+                    28) msg_error "timeout (${router_timeout} second(s) tried on host: http://${dlink_ip}/${dlink_url})"; exit 28 ;;
                     1)  msg_error "Could not download from host: \"http://${dlink_ip}/${dlink_url}\", is it up?"; exit 1 ;;
                     0)  msg_tattle "Got IP address from host: \"http://${dlink_ip}/${dlink_url}\"" ;;
                 esac
@@ -635,7 +637,7 @@ case "$CHECKMODE" in
 				  # Try the DI-524 version
                     disconnected=$(_cut_string "${line2}" 14 9)
                     if [ "$disconnected" != "Connected" ]; then
-                      msg_error "ERROR: DLink DI-624/524 internet interface is down!"
+                      msg_error "DLink DI-624/524 internet interface is down!"
                       exit 1
                     fi
                 fi
@@ -651,18 +653,18 @@ case "$CHECKMODE" in
                	fi
                	string=`$fetcher --connect-timeout "${router_timeout}" -s --anyauth -u ${netgear1_user}:"${netgear1_passwd}" -o "${router_tmp_file}" http://${netgear1_ip}/${netgear1_url}`
                 case $? in
-                    28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${netgear1_ip}/${netgear1_url})"; exit 28 ;;
+                    28) msg_error "timeout (${router_timeout} second(s) tried on host: http://${netgear1_ip}/${netgear1_url})"; exit 28 ;;
                     1)  msg_error "Could not download from host: \"http://${netgear1_ip}/${netgear1_url}\", is it up?"; exit 1 ;;
                     0)  msg_tattle "Got IP address from host: \"http://${netgear1_ip}/${netgear1_url}\"" ;;
                 esac
                	current_ip=`$grep -A 20 "Internet Port" ${router_tmp_file} |$grep -A 1 "IP Address"|egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $sed 's/<[^>]*>//g;/</N;'|$sed 's/^[^0-9]*//;s/[^0-9]*$//'` 
                 if [ -z "$current_ip" ]; then
-                    msg_error "ERROR: Netgear-TA612V internet interface is down!"
+                    msg_error "Netgear-TA612V internet interface is down!"
                     exit 1
                 fi
                 $fetcher --connect-timeout "${router_timeout}" -s --anyauth -u ${netgear1_user}:${netgear1_passwd} http://${netgear1_ip}/${netgear1_logout}
                 case $? in
-                    28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${netgear1_ip}/${netgear1_logout}"; exit 28 ;;
+                    28) msg_error "timeout (${router_timeout} second(s) tried on host: http://${netgear1_ip}/${netgear1_logout}"; exit 28 ;;
                     1)  msg_error "Could not log out from host: \"http://${netgear1_ip}/${netgear1_logout}\", is it up?" ;;  
                     0)  msg_tattle "Log out from host: \"http://${netgear1_ip}/${netgear1_logout}\"" ;;
                 esac
@@ -677,19 +679,19 @@ case "$CHECKMODE" in
                 fi
                 string=`$fetcher --connect-timeout "${router_timeout}" -s --anyauth -u ${wgt624_user}:"${wgt624_passwd}" -o "${router_tmp_file}" http://${wgt624_ip}/${wgt624_url}`
                 case $? in
-                    28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${wgt624_ip}/${wgt624_url})"; exit 28 ;;
+                    28) msg_error "timeout (${router_timeout} second(s) tried on host: http://${wgt624_ip}/${wgt624_url})"; exit 28 ;;
                     1)  msg_error "Could not download from host: \"http://${wgt624_ip}/${wgt624_url}\", is it up?"; exit 1 ;;
                     0)  msg_tattle "Got IP address from host: \"http://${wgt624_ip}/${wgt624_url}\"" ;;
                 esac
 
                 current_ip=`$grep -A 20 "Internet Port" ${router_tmp_file}| $grep -A 1 "IP Address" | $egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $sed 's/<[^>]*>//g;/</N;'| $sed 's/^[^0-9]*//;s/[^0-9]*$//'`
                 if [ "$current_ip" == "0.0.0.0" ]; then
-                    msg_error "ERROR: WGT 624 internet interface is down!"
+                    msg_error "WGT 624 internet interface is down!"
                     exit 1
                 fi
                 $fetcher --connect-timeout "${router_timeout}" -s --anyauth -u ${wgt624_user}:${wgt624_passwd} http://${wgt624_ip}/${wgt624_logout}
                 case $? in
-                    28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${wgt624_ip}/${wgt624_logout})"; exit 28 ;;
+                    28) msg_error "timeout (${router_timeout} second(s) tried on host: http://${wgt624_ip}/${wgt624_logout})"; exit 28 ;;
                     1)  msg_error "Could not log out from host: \"http://${wgt624_ip}/${wgt624_logout}\", is it up?" ;;
                     0)  msg_tattle "Log out from host: \"http://${wgt624_ip}/${wgt624_logout}\"" ;;
                 esac
@@ -704,13 +706,13 @@ case "$CHECKMODE" in
                 fi
                 string=`$fetcher --connect-timeout "${router_timeout}" -s --anyauth -u ${digitusDN_user}:"${digitusDN_passwd}" -o "${router_tmp_file}" http://${digitusDN_ip}/${digitusDN_url}`
                 case $? in
-                    28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${digitusDN_ip}/${digitusDN_url})"; exit 28 ;;
+                    28) msg_error "timeout (${router_timeout} second(s) tried on host: http://${digitusDN_ip}/${digitusDN_url})"; exit 28 ;;
                     1)  msg_error "Could not download from host: \"http://${digitusDN_ip}/${digitusDN_url}\", is it up?"; exit 1 ;;
                     0)  msg_tattle "Got IP address from host: \"http://${digitusDN_ip}/${digitusDN_url}\"" ;;
                 esac
                 current_ip=`$grep IP ${router_tmp_file}|$grep Adr |$egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $sed 's/<[^>]*>//g;/</N;'| $sed 's/^[^0-9]*//;s/[^0-9]*$//'`
                 if [ "$current_ip" == "0.0.0.0" ]; then
-                    msg_error "ERROR: Digitus DN 11001 internet interface is down!"
+                    msg_error "Digitus DN 11001 internet interface is down!"
                     exit 1
                 fi
                 ;;
@@ -727,13 +729,13 @@ case "$CHECKMODE" in
                 $fetcher --max-time ${router_timeout} -d pws=${philipsPSTN_passwd} http://${philipsPSTN_ip}/${philipsPSTN_loginpath}
                 string=`$fetcher --connect-timeout "${router_timeout}" -s -o "${router_tmp_file}" http://${philipsPSTN_ip}/${philipsPSTN_url}`
                 case $? in
-                    28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${philipsPSTN_ip}/${philipsPSTN_url})"; exit 28 ;;
+                    28) msg_error "timeout (${router_timeout} second(s) tried on host: http://${philipsPSTN_ip}/${philipsPSTN_url})"; exit 28 ;;
                     1)  msg_error "Could not download from host: \"http://${philipsPSTN_ip}/${philipsPSTN_url}\", is it up?"; exit 1 ;;
                     0)  msg_tattle "Got IP address from host: \"http://${philipsPSTN_ip}/${philipsPSTN_url}\"" ;;
                 esac
                 current_ip=`$grep "var wan_ip" "${router_tmp_file}" | cut -d \" -f 2`
                 if [ "$current_ip" == "0.0.0.0" ]; then
-                    msg_error "ERROR: Philips Wireless PSTN internet interface is down!"
+                    msg_error "Philips Wireless PSTN internet interface is down!"
                     exit 1
                 fi
                 # logout from router
@@ -748,14 +750,14 @@ case "$CHECKMODE" in
                 fi
                 string=`$fetcher --connect-timeout "${router_timeout}" -s --anyauth -u ${west327_user}:"${west327_passwd}" -o "${router_tmp_file}" http://${west327_ip}/${west327_url}`
                 case $? in
-                    28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${west327_ip}/${west327_url})"; exit 28 ;;
+                    28) msg_error "timeout (${router_timeout} second(s) tried on host: http://${west327_ip}/${west327_url})"; exit 28 ;;
                     1)  msg_error "Could not download from host: \"http://${west327_ip}/${west327_url}\", is it up?"; exit 1 ;;
                     0)  msg_tattle "Got IP address from host: \"http://${west327_ip}/${west327_url}\"" ;;
                 esac
                 #current_ip=`$grep -A 1 Secondary ${router_tmp_file} |$egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | gawk -F";" ' {print $2}' | $sed 's/<br>&nbsp//'`
                 current_ip=`$grep -A 1 Secondary ${router_tmp_file} | $egrep -e \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} | $cut -d ';' -f 2 | $sed 's/<br>&nbsp//'`
                 if [ "$current_ip" == "0.0.0.0" ]; then
-                    msg_error "ERROR: Westell 327W internet interface is down!"
+                    msg_error "Westell 327W internet interface is down!"
                     exit 1
                 fi
                 ;;
@@ -763,13 +765,13 @@ case "$CHECKMODE" in
             7)
                 string=`$fetcher --connect-timeout "${router_timeout}" -s -o "${router_tmp_file}" http://${lafonera_ip}/${lafonera_url}`
                 case $? in
-                    28) msg_error "ERROR: timeout (${router_timeout} second(s) tried on host: http://${lafonera_ip}/${lafonera_url})"; exit 28 ;;
+                    28) msg_error "timeout (${router_timeout} second(s) tried on host: http://${lafonera_ip}/${lafonera_url})"; exit 28 ;;
                     1)  msg_error "Could not download from host: \"http://${lafonera_ip}/${lafonera_url}\", is it up?"; exit 1 ;;
                     0)  msg_tattle "Got IP address from host: \"http://${lafonera_ip}/${lafonera_url}\"" ;;
                 esac
                 current_ip=`$cat ${router_tmp_file} | $grep -A 2 -i Internet | $grep IP| $cut -d : -f 2 | $sed 's/<[^>]*>//g' | $sed 's/ //g'`
                 if [ "$current_ip" == "N/A" ]; then
-                    msg_error "ERROR: La Fonera internet interface is down!"
+                    msg_error "La Fonera internet interface is down!"
                     exit 1
                 fi
                 ;;
@@ -789,7 +791,7 @@ if [ "$current_ip" != "$old_ip" ]
       	    # afraid.org gets IP over the http request of your url
             afraid_feedback=`$fetcher --connect-timeout "${remote_timeout}" -A "${bddc_name}" -s "$afraid_url"`
             case $? in
-                28) msg_error "ERROR: timeout (${remote_timeout} second(s) tried on host: ${afraid_url})"; 
+                28) msg_error "timeout (${remote_timeout} second(s) tried on host: ${afraid_url})"; 
                     exit 28 ;;
                 1)  msg_error "Could not download from host: \"${afraid_url}\", is it up?"; exit 1 ;;
                 0)  # everything went fine
@@ -812,7 +814,7 @@ if [ "$current_ip" != "$old_ip" ]
             myurl=`$echo "http://${dyndnsorg_username}:${dyndnsorg_passwd}@members.dyndns.org/nic/update?system=dyndns&hostname=${dyndnsorg_hostnameS}&myip=${dyndnsorg_ip}&wildcard=${dyndnsorg_wildcard}&mx=${dyndnsorg_mail}&backmx=${dyndnsorg_backmx}&offline=${dyndnsorg_offline}"`
             dyndnsorg_feedback=`$fetcher --connect-timeout "${remote_timeout}" -s -A "${bddc_name}" ${myurl}`
             case $? in
-                28) msg_error "ERROR: timeout (${remote_timeout} second(s) tried on host: ${myurl})"; exit 28 ;;
+                28) msg_error "timeout (${remote_timeout} second(s) tried on host: ${myurl})"; exit 28 ;;
                 1)  msg_error "Could not connect to host: \"${myurl}\", is it up?"; exit 1 ;;
                 0)  # everything went fine
                     msg_tattle "Connected to host: \"${myurl}\"" 
@@ -849,7 +851,7 @@ if [ "$current_ip" != "$old_ip" ]
             myurl=`$echo "http://dynupdate.no-ip.com/nic/update?hostname=${noipcom_hostnameS}&myip=${noipcom_ip}"`
             noipcom_feedback=`$fetcher --connect-timeout "${remote_timeout}" -s -A "${bddc_name}" --basic -u ${noipcom_username}:${noipcom_passwd} ${myurl}`
             case $? in
-                28) msg_error "ERROR: timeout (${remote_timeout} second(s) tried on host: ${myurl})"; exit 28 ;;
+                28) msg_error "timeout (${remote_timeout} second(s) tried on host: ${myurl})"; exit 28 ;;
                 1)  msg_error "Could not connect to host: \"${myurl}\", is it up?"; exit 1 ;;
                 0)  msg_tattle "Connected to host: \"${myurl}\"" ;;
             esac
@@ -902,7 +904,7 @@ if [ $ping_check -eq 1 ]; then
     if [ "$current_ip" != "$ns_ip" ]; then
         msg_tattle "Nameservers did not register the change yet."
         if [ "$old_ip" == "127.0.0.1" ]; then
-            msg_error "ERROR: your dns service did not update your ip the first time\nMaybe you forgot to set the IPSYNMODE option to a correct value (T is just for testing)\ndns record: $ns_ip | your ip: $current_ip"
+            msg_error "your dns service did not update your ip the first time\nMaybe you forgot to set the IPSYNMODE option to a correct value (T is just for testing)\ndns record: $ns_ip | your ip: $current_ip"
         fi
         # this forces an update at next check and prompts the error message
         $echo "127.0.0.1" > $ip_cache
