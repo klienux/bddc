@@ -53,24 +53,26 @@ bddc_version="0.3.2"
 # you should further turn the log level very low, after you made shure bddc    #
 # works correctly. this would otherwise fill up your memory quickly.           #
 #                                                                              #
-# if you want your router to be supported,                                     #
-# add the following information to the feature request site on sourceforge.net:#
 #                                                                              #
-# *) the url under which the external ip can be read from your router          #
-# *) a copy of the html source code from this site (each online and offline)   #
-# *) the complete name of your router                                          #
-# *) the url to call for logout of the router                                  #
-# *) your name and email address for contact and testing purpose before        #
-#    a release is done.                                                        #
-# OR, what we prefer                                                           #
-# *) write your own parsing string and                                         #
+# if you want your router to be supported,                                     #
+# *) send us a patch of your changes (plus the version number of bddc on       #
+#    which the patch works on.)                                                #
+# OR                                                                           #
+# *) send us your own parsing string and                                       #
 # *) the value of the ip when offline (maybe other possible errors)            #
 #  as we do in the script and put it on the feature request forum on           #
 #  sourceforge.net.                                                            #
 # *) plus full name of the router                                              #
 # *) your name and email address for contact and testing purpose before        #
 #    a release is done.                                                        #
-# OR, send us a patch of your changes                                          #
+# OR                                                                           #
+# add the following information to the feature request site on sourceforge.net:#
+# *) the url under which the external ip can be read from your router          #
+# *) a copy of the html source code from this site (each online and offline)   #
+# *) the complete name of your router                                          #
+# *) the url to call for logout of the router                                  #
+# *) your name and email address for contact and testing purpose before        #
+#    a release is done.                                                        #
 #                                                                              #
 # exit codes:                                                                  #
 # 0  -> everything went fine                                                   #
@@ -604,6 +606,7 @@ case "$CHECKMODE" in
         #  alt2: |$sed -ne "s/.*[^0-9]\(\([0-9]\{1,3\}\.\)\{3\}\([0-9]\{1,3\}\)\).*/\1/p"  # works well, one exception is when addr is on beginning of the line
         #  alt3: |$sed -ne "s/\(^\|.*[^0-9]\)\(\([0-9]\{1,3\}\.\)\{3\}\([0-9]\{1,3\}\)\).*/\2/p" |uniq  # works with all tested sites
         current_ip=`$cat $html_tmp_file |$sed -ne "s/\(^\|.*[^0-9]\)\(\([0-9]\{1,3\}\.\)\{3\}\([0-9]\{1,3\}\)\).*/\2/p" |$uniq`
+        # current_ip=`$cat $html_tmp_file |$sed -ne "s/.*[^0-9]\(\([0-9]\{1,3\}\.\)\{3\}\([0-9]\{1,3\}\)\).*/\1/p" | $uniq ` # works well on Mac Os X
         #current_ip=`$cat $html_tmp_file | $egrep -e ^[\ \t]*\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}| $sed 's/ //g'`
 
         ## uncomment the next two lines for testing, to see if it works:
@@ -798,10 +801,23 @@ if [ "$current_ip" != "$old_ip" ]
                     msg_tattle "Updated IP address on host: \"${afraid_url}\"" 
                     ;;
             esac
-
+            # those are the possible error messages from afraid.org:
+            #"ERROR: \"$address\" is an invalid IP address.";
+			#"ERROR: Please clear your RBL listing of $address with: $return";
+			#"ERROR: Missing S/key and DataID, check your update URL.";
+			#"ERROR: Hostname has been ICED.";
+			#"ERROR: Address $address has not changed.";
+			#"ERROR: Account frozen.";
+			#"ERROR: $resp";
+			#"ERROR: " . $res['matchitem'] . " is listed on SBL : " . $res['rblresults'] . ".  Please clear your listing with them first.";
+			#"ERROR: " . $res['matchitem'] . " is on the local banned IP list.";
+			#"ERROR: Only premium members are permitted to point to IPs into this range.";
+			
             if [ "ERROR" = "$(_cut_string "${afraid_feedback}" 1 5)" ]; then
                 msg_error "afraid.org: ${afraid_feedback}"
-                # do not exit if ip did not change 
+                # do not exit on this error, ip must be updated to cache file:
+                # - "ERROR: Address $address has not changed.";
+                # exit on every other
                 if [ "" = "$( $echo ${afraid_feedback} | $grep "has not changed." )" ]; then
                     exit 1
                 fi
