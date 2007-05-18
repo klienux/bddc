@@ -107,10 +107,11 @@ wget=wget
 #      this is only prompted to the console if SILENT=0 AND LOGGING=4
 # 3 -> log whenever a check is done
 # 2 -> log when ip changes
-# 1 -> log errors
+# 1 -> log errors (recommended for WRT environments)
 # 0 -> log nothing
 LOGGING=3
-LOGFILE=/var/log/bddc.log
+LOGFILE=/var/log/bddc.log 
+#LOGFILE=/tmp/bddc.log # (recommended for WRT environments)
 
 # cache file for ip address
 ip_cache=/tmp/bddc-ip-add.cache
@@ -286,7 +287,7 @@ preferred_fetchers="$wget $curl"
 # if you are using bddc on a wrt environment clear the cutting_string variable 
 # do NOT edit this otherwise
 cutting_string="$echo ${str:${in1}:${in2}};" # for full featured Linux and Mac Os X
-#cutting_string= # for WRT systems
+#cutting_string= # (essential for WRT environments!!!)
 
 ################################################################################
 # End of editspace, just go further if you know what you are doing             #
