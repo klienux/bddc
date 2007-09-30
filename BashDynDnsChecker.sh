@@ -1,5 +1,5 @@
 #!/bin/bash
-bddc_version="0.3.2"
+bddc_version="0.3.3"
 ################################################################################
 # licensed under the                                                           #
 # The MIT License                                                              #
@@ -586,7 +586,9 @@ case "$CHECKMODE" in
     	# edit line of current_ip to a form that only the ip remains when you get the html file
 	# in this format: '123.123.132.132'
         string=`$fetcher --connect-timeout "${remote_timeout}" -s -A "${bddc_name}" $check_url -o ${html_tmp_file}`
-
+    
+        # this fixes return values without ending newline, like wahtismyip.com automation page
+        $echo -ne "\n\n" >> ${html_tmp_file} 
         case $? in
             28) msg_error "timeout (${remote_timeout} second(s) tried on host: ${check_url})"; exit 28 ;;
             1)  msg_error "Could not download from host: \"${check_url}\", is it up?"; exit 1 ;;
@@ -595,7 +597,7 @@ case "$CHECKMODE" in
         #  Note: this was tested on few different sites and it works.  Your mileage may vary.
         #+ This looks for anything that is formatted like an IP number and prints it.
         #  Sites tested:
-        #o http://whatismyip.com
+        #o http://www.whatismyip.com/automation/n09230945.asp 
         #o http://ipdetect.dnspark.com:8888/
         #o http://www.ipchicken.com/
         #o http://checkip.dyndns.org/
