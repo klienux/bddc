@@ -61,12 +61,13 @@ bddc_version="0.3.3"
 # *) send us your own parsing string and                                       #
 # *) the value of the ip when offline (maybe other possible errors)            #
 #  as we do in the script and put it on the feature request forum on           #
-#  sourceforge.net.                                                            #
+#  sourceforge.net or bddc.origo.ethz.ch.                                                            #
 # *) plus full name of the router                                              #
 # *) your name and email address for contact and testing purpose before        #
 #    a release is done.                                                        #
 # OR                                                                           #
-# add the following information to the feature request site on sourceforge.net:#
+# add the following information to the feature request site on                 #
+# sourceforge.net or origo.ethz.ch (wiki):                                     #
 # *) the url under which the external ip can be read from your router          #
 # *) a copy of the html source code from this site (each online and offline)   #
 # *) the complete name of your router                                          #
@@ -264,7 +265,7 @@ noipcom_ip=
 ########## / DNS Server Section ###########
 
 # the name of the client that is sent with updates and requests (do not change)
-bddc_name="bashdyndnschecker (bddc v${bddc_version})/bddc.sf.net"
+bddc_name="bashdyndnschecker (bddc v${bddc_version})/bddc.klienux.org"
 
 # Ping check
 # checks if the dns service edited your ip.
