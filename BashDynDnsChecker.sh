@@ -4,7 +4,7 @@ bddc_version="0.3.3"
 # licensed under the                                                           #
 # The MIT License                                                              #
 #                                                                              #
-# Copyright (c) <2006 - 2007> <florian[at]klien[dot]cx>                        #
+# Copyright (c) <2006 - 2008> <florian[at]klien[dot]cx>                        #
 #                                                                              #
 # Permission is hereby granted, free of charge, to any person obtaining a copy #
 # of this software and associated documentation files (the "Software"), to     #
@@ -36,7 +36,7 @@ bddc_version="0.3.3"
 # ping, rm and wget or curl.                                                   #
 # which should be available in every *nix system.                              #
 #                                                                              #
-# copyright 2006 - 2007 by florian klien                                       #
+# copyright 2006 - 2008 by florian klien                                       #
 # florian[at]klien[dot]cx                                                      #
 #                                                                              #
 # supports ip reception from ifconfig, an external url (by http)               #
