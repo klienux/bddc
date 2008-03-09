@@ -137,7 +137,7 @@ inet_if=eth0
 # ad 2: remote url to get ip from over http
 # (!) changing this needs you to change the 
 # parsing string further down in the code.
-check_url=http://whatismyip.com
+check_url=http://www.whatismyip.com/automation/n09230945.asp
 # seconds to try for remote host:
 remote_timeout=10
 
