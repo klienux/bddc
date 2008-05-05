@@ -1,5 +1,5 @@
 #!/bin/bash
-bddc_version="0.3.3"
+bddc_version="0.3.4"
 ################################################################################
 # licensed under the                                                           #
 # The MIT License                                                              #
@@ -53,8 +53,20 @@ bddc_version="0.3.3"
 # you should further turn the log level very low, after you made shure bddc    #
 # works correctly. this would otherwise fill up your memory quickly.           #
 #                                                                              #
+# (!) Ping-Check is a feature that controls the update of your new dyn-ip.     #
+#  Just use it if you know what it does!                                       #
+#  If you want a safety net for your home server enable Ping-Check.            #
+#  BE CAREFUL about your settings!                                             #
+#  You MUST NOT choose an update interval that is too short (interval < 5min)  #
+#  You MUST NOT use an internal DNS server with your dyn-hostname as a record. #
+#   This record is most likely to send an internal IP for this hostname. Make  #
+#   sure you get a DNS result from an external server, with the correct IP.    #
+#  How does it work?                                                           #
+#   Ping-Check compares the IP it gets back from the ping. The ping is of      #
+#   course done against the dyn-hostname. If the IP is not the same as on      #
+#   record an other update is forced.                                          #
 #                                                                              #
-# if you want your router to be supported,                                     #
+# (I) if you want your router to be supported,                                 #
 # *) send us a patch of your changes (plus the version number of bddc on       #
 #    which the patch works on.)                                                #
 # OR                                                                           #
@@ -267,7 +279,8 @@ noipcom_ip=
 # the name of the client that is sent with updates and requests (do not change)
 bddc_name="bashdyndnschecker (bddc v${bddc_version})/bddc.klienux.org"
 
-# Ping check
+# Ping check !!! - ONLY ENABLE IF YOU KNOW WHAT THIS DOES - !!!
+# see header for details, or http://bddc.klienux.org/faq.php
 # checks if the dns service edited your ip.
 # pings your hostname (my_url) to check for the ip.
 # updates again if ip differs from current ip. 
@@ -275,9 +288,9 @@ bddc_name="bashdyndnschecker (bddc v${bddc_version})/bddc.klienux.org"
 ping_check=0
 
 # the url that needs the dyndns
-# is used to ping this url, to check for successful dns update.
+# is used for Ping-Check, to check for successful dns update.
 # only used when ping_check is enabled. (if you are using multiple domains, 
-# you must not list all. one is enough)
+# you MUST ONLY list one.)
 my_url=your.domain.com
 
 # list of preferred url fetchers
