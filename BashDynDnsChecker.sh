@@ -91,6 +91,7 @@ bddc_version="0.3.4"
 # 0  -> everything went fine                                                   #
 # 1  -> some error occured during runtime                                      #
 # 2  -> some config error was caught                                           #
+# 11 -> ip address was private                                                 #
 # 28 -> timeout at connecting to some host                                     #
 #                                                                              #
 ################################################################################
@@ -799,6 +800,51 @@ case "$CHECKMODE" in
         rm ${router_tmp_file}
         ;;
 esac
+
+#---------IP-checking-part-----------------------
+# check if ip is in a private range == not visible to others
+if [ "$current_ip" != "$old_ip" ]; then
+    first_part=`echo $current_ip | cut -d . -f 1`
+    second_part=`echo $current_ip | cut -d . -f 2`
+    case $current_ip in
+        127.0.0.1)
+                msg_error "IP address $current_ip is localhost"
+                exit 11
+                ;;
+        255.255.255.255)
+                msg_error "IP address $current_ip is broadcast"
+                exit 11
+                ;;
+    esac
+    case $first_part in
+        10)
+                msg_error "IP address $current_ip is part of private network"
+                exit 11
+                ;;
+        169)
+            if [ "$second_part" == "254" ]; then
+                msg_error "IP address $current_ip is part of private network"
+                exit 11
+            fi
+                ;;
+        172)
+            if [ $second_part -ge 16 ] && [ $second_part -le 31 ]
+             then
+                msg_error "IP address $current_ip is part of private network"
+                exit 11
+            fi
+                ;;
+        192)
+            if [ "$second_part" == "168" ]; then
+                msg_error "IP address $current_ip is part of private network"
+                exit 11
+            fi
+                ;;
+    esac
+msg_tattle "IP  $current_ip seems alright, passing to syndication part"
+fi
+
+
 
 #---------IP-syndication-part--------------------
 old_ip=`$cat $ip_cache`
