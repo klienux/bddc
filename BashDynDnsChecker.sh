@@ -1,5 +1,5 @@
 #!/bin/bash
-bddc_version="0.3.4"
+bddc_version="0.3.5"
 ################################################################################
 # licensed under the                                                           #
 # The MIT License                                                              #
@@ -73,7 +73,7 @@ bddc_version="0.3.4"
 # *) send us your own parsing string and                                       #
 # *) the value of the ip when offline (maybe other possible errors)            #
 #  as we do in the script and put it on the feature request forum on           #
-#  sourceforge.net or bddc.origo.ethz.ch.                                                            #
+#  sourceforge.net or bddc.origo.ethz.ch.                                      #
 # *) plus full name of the router                                              #
 # *) your name and email address for contact and testing purpose before        #
 #    a release is done.                                                        #
@@ -970,23 +970,21 @@ else
     msg_tattle "IP Address not changed since last update, skipping."
 fi #/ if ip changed
 
-
 # check if nameserver got ip!
 if [ $ping_check -eq 1 ]; then
     ns_ip=`$ping -c 1 ${my_url} | $grep PING | $cut -d \( -f 2 | $cut -d \) -f 1`
     msg_tattle "Performed ping check, NS returned IP: $ns_ip"
     if [ "$current_ip" != "$ns_ip" ]; then
         msg_tattle "Nameservers did not register the change yet."
-        if [ "$old_ip" == "127.0.0.1" ]; then
+        if [ "$old_ip" == "--NOT---SYNCED--" ]; then
             msg_error "your dns service did not update your ip the first time\nMaybe you forgot to set the IPSYNMODE option to a correct value (T is just for testing)\ndns record: $ns_ip | your ip: $current_ip"
         fi
         # this forces an update at next check and prompts the error message
-        $echo "127.0.0.1" > $ip_cache
+        $echo "--NOT---SYNCED--" > $ip_cache
     fi
 fi
 #/ check if nameserver got ip!
 
 msg_verbose "current ip: $current_ip"
 exit 0
-
 
