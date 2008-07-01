@@ -50,7 +50,7 @@ bddc_version="0.3.5"
 # (!) if you use bddc on a wrt environment, change the very first line from    #
 # '#/bin/bash' to '#/bin/sh', without the quotes                               #
 # and clear the cutting_string variable at the end of the edit space           #
-# you should further turn the log level very low, after you made shure bddc    #
+# you should further turn the log level very low, after you made sure bddc     #
 # works correctly. this would otherwise fill up your memory quickly.           #
 #                                                                              #
 # (!) Ping-Check is a feature that controls the update of your new dyn-ip.     #
@@ -73,13 +73,13 @@ bddc_version="0.3.5"
 # *) send us your own parsing string and                                       #
 # *) the value of the ip when offline (maybe other possible errors)            #
 #  as we do in the script and put it on the feature request forum on           #
-#  sourceforge.net or bddc.origo.ethz.ch.                                      #
+#  sourceforge.net.                                                            #
 # *) plus full name of the router                                              #
 # *) your name and email address for contact and testing purpose before        #
 #    a release is done.                                                        #
 # OR                                                                           #
 # add the following information to the feature request site on                 #
-# sourceforge.net or origo.ethz.ch (wiki):                                     #
+# sourceforge.net:                                                             #
 # *) the url under which the external ip can be read from your router          #
 # *) a copy of the html source code from this site (each online and offline)   #
 # *) the complete name of your router                                          #
@@ -209,7 +209,7 @@ digitusDN_ip=192.168.0.1
 digitusDN_url=status.htm
 #-------/Digitus DN 11001------
 
-#-------Philips Wireless PSTN------- Currently testing...
+#-------Philips Wireless PSTN------- Not confirmed working...
 # ad 5: Philips Wireless PSTN conf
 philipsPSTN_user="ADMIN"
 philipsPSTN_passwd="PASSWD"
@@ -220,7 +220,7 @@ philipsPSTN_loginpath=cgi-bin/login.exe
 philipsPSTN_logoutpath=cgi-bin/logout.exe
 #-------/Philips Wireless PSTN------
 
-#-------Westell 327W------- Currently testing...
+#-------Westell 327W------- Not confirmed working...
 # ad 6: Westell 327W conf
 west327_user="ADMIN"
 west327_passwd="PASSWD"
