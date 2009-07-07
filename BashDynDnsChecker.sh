@@ -1,10 +1,10 @@
 #!/bin/bash
-bddc_version="0.3.5"
+bddc_version="0.3.8"
 ################################################################################
 # licensed under the                                                           #
 # The MIT License                                                              #
 #                                                                              #
-# Copyright (c) <2006 - 2008> <florian[at]klien[dot]cx>                        #
+# Copyright (c) <2006 - 2009> <florian[at]klien[dot]cx>                        #
 #                                                                              #
 # Permission is hereby granted, free of charge, to any person obtaining a copy #
 # of this software and associated documentation files (the "Software"), to     #
@@ -135,6 +135,15 @@ html_tmp_file=/tmp/bddc_html_tmp_file
 # turn silent mode on (no echo while running, [1 is silent])
 SILENT=0
 
+# submit your log also to twitter
+# use 0 for no twittering
+# 1 for logging errors (although it might be that they do not make it to twitter)
+# 2 for twittering whenever ip changes
+# 3 for whenever a check is done
+# 4 for every little step (NOT RECOMMENDED)
+# use "USERNAME:PASSWD"
+TWITTER=0
+TUSERPWD="USER:PASSWD"
 #################################
 # mode of ip checking
 # 1 -> output of ifconfig
@@ -354,23 +363,27 @@ login_data_valid () {
 msg_error() {
     [ $SILENT -eq 0 ] && _msg_console "$@"
     [ $LOGGING -ge 1 ] && _msg_log "ERROR: $@"
+    [ $TWITTER -ge 1 ] && _msg_tw "ERROR: $@"
 }
 
 msg_info() {
     [ $SILENT -eq 0 ] && _msg_console "$@"
     [ $LOGGING -ge 2 ] && _msg_log "INFO: $@"
+    [ $TWITTER -ge 2 ] && _msg_tw "INFO: $@"
 }
 
 msg_verbose() {
     [ $SILENT -eq 0 ] && _msg_console "$@"
     [ $LOGGING -ge 3 ] && _msg_log "VERBOSE: $@"
+    [ $TWITTER -ge 3 ] && _msg_tw "VERBOSE: $@"
 }
 
 msg_tattle() {
     if [ $LOGGING -ge 4 ]; then 
-        _msg_log "VERBOSE: $@"
+        _msg_log "TATTLE: $@"
         [ $SILENT -eq 0 ] && _msg_console "$@"
     fi
+    [ $TWITTER -ge 4 ] && _msg_tw "$@"
 }
 
 # _fetcher_bbwget: download specified target with busybox's wget; expects options 
@@ -541,6 +554,17 @@ _msg_console() {
 
 _msg_log() {
     $echo -e "[`$date +%d/%b/%Y:%T`] | $@" >> $LOGFILE
+}
+
+_msg_tw() {
+    # it may occur that twitter does not update every time (especially when the message
+    # does not change). in this case try embedding the timestamp (as below).
+    #text="[`$date +%d/%b/%Y:%T`] $@"
+    text="$@" 
+    chars=$(echo -ne $text| wc -c)
+    if [ "$chars" -gt "140" ]; then msg_error "twitter msg too long"; return; fi
+    user=$TUSERPWD
+    curl -s --basic --user $user --data-ascii "status=$text" "http://twitter.com/statuses/update.json" 1> /dev/null && _msg_log "twitter update successful"
 }
 
 #### end of Functions
@@ -961,6 +985,7 @@ if [ "$current_ip" != "$old_ip" ]
             ;;
     esac
 
+    msg_tattle "writing current ip '$current_ip' to ip cache '$ip_cache'"
     $echo $current_ip > $ip_cache
 
     #logging
@@ -980,6 +1005,7 @@ if [ $ping_check -eq 1 ]; then
             msg_error "your dns service did not update your ip the first time\nMaybe you forgot to set the IPSYNMODE option to a correct value (T is just for testing)\ndns record: $ns_ip | your ip: $current_ip"
         fi
         # this forces an update at next check and prompts the error message
+        msg_tattle "writing '--NOT---SYNCED--' to ip cache to force update!!!"
         $echo "--NOT---SYNCED--" > $ip_cache
     fi
 fi
