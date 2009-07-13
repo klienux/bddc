@@ -1,5 +1,5 @@
 #!/bin/bash
-bddc_version="0.3.8"
+bddc_version="0.3.9"
 ################################################################################
 # licensed under the                                                           #
 # The MIT License                                                              #
@@ -36,7 +36,7 @@ bddc_version="0.3.8"
 # ping, rm and wget or curl.                                                   #
 # which should be available in every *nix system.                              #
 #                                                                              #
-# copyright 2006 - 2008 by florian klien                                       #
+# copyright 2006 - 2009 by florian klien                                       #
 # florian[at]klien[dot]cx                                                      #
 #                                                                              #
 # supports ip reception from ifconfig, an external url (by http)               #
@@ -135,12 +135,13 @@ html_tmp_file=/tmp/bddc_html_tmp_file
 # turn silent mode on (no echo while running, [1 is silent])
 SILENT=0
 
-# submit your log also to twitter
+# submit your log also to twitter 
+# (this can be a security issue, since your ip can be seen by anyone)
 # use 0 for no twittering
 # 1 for logging errors (although it might be that they do not make it to twitter)
 # 2 for twittering whenever ip changes
-# 3 for whenever a check is done
-# 4 for every little step (NOT RECOMMENDED)
+# 3 for whenever a check is done (twitter will not accept identical messages)
+# 4 for twittering every little step (NOT RECOMMENDED)
 # use "USERNAME:PASSWD"
 TWITTER=0
 TUSERPWD="USER:PASSWD"
@@ -562,7 +563,11 @@ _msg_tw() {
     #text="[`$date +%d/%b/%Y:%T`] $@"
     text="$@" 
     chars=$(echo -ne $text| wc -c)
-    if [ "$chars" -gt "140" ]; then msg_error "twitter msg too long"; return; fi
+    if [ "$chars" -gt "140" ]; then 
+      #msg_error "twitter msg too long"; return; fi
+      msg_tattle "cropping next msg for twitters 140 chars"
+      text=${text:0:140}
+    fi
     user=$TUSERPWD
     curl -s --basic --user $user --data-ascii "status=$text" "http://twitter.com/statuses/update.json" 1> /dev/null && _msg_log "twitter update successful"
 }
@@ -988,15 +993,14 @@ if [ "$current_ip" != "$old_ip" ]
     msg_tattle "writing current ip '$current_ip' to ip cache '$ip_cache'"
     $echo $current_ip > $ip_cache
 
-    #logging
     msg_info "ip changed: $current_ip"
-    #/logging
 else
     msg_tattle "IP Address not changed since last update, skipping."
 fi #/ if ip changed
 
 # check if nameserver got ip!
 if [ $ping_check -eq 1 ]; then
+    sleep 20
     ns_ip=`$ping -c 1 ${my_url} | $grep PING | $cut -d \( -f 2 | $cut -d \) -f 1`
     msg_tattle "Performed ping check, NS returned IP: $ns_ip"
     if [ "$current_ip" != "$ns_ip" ]; then
